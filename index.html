@@ -260,7 +260,12 @@ let saveTimers  = {};     // debounce per block
 (async function boot() {
   // Check if owner token stored locally
   const stored = sessionStorage.getItem('pomo_owner_token');
-  if (stored) { ownerToken = stored; }
+  if (stored) {
+    ownerToken = stored;
+  } else {
+    // First visit — fetch token from server
+    await claimOwner();
+  }
 
   // First poll — server will confirm if token is valid
   await poll();
