@@ -659,30 +659,29 @@ async function ownerPost(action, body={}) {
 function doStart(bi) {
   const block = state.blocks[bi];
   const totalMins = (block.tasks||[]).reduce((s,t) => s + (Number(t.minutes)||0), 0);
-  // Block start if tasks are set but don't total 35min
-  if (totalMins > 0 && totalMins !== 35) {
+  const useMini = state.miniLoop[bi] !== false;
+  const TARGET = useMini ? 35 : 45;
+  if (totalMins > 0 && totalMins !== TARGET) {
     const card = document.querySelector(`.block-card[data-block-idx="${bi}"]`);
     if (card) {
-      // Shake the whole card
       card.style.animation = 'none';
       card.offsetHeight;
       card.style.animation = 'shake .5s ease';
       setTimeout(() => { card.style.animation = ''; }, 600);
-      // Show/update warning message
       let warn = card.querySelector('.time-warning-msg');
       if (!warn) {
         warn = document.createElement('div');
         warn.className = 'time-warning-msg';
         card.querySelector('.block-header').after(warn);
       }
-      const color = totalMins < 35 ? '#c05050' : '#9b6fc0';
+      const color = totalMins < TARGET ? '#c05050' : '#9b6fc0';
       warn.style.color = color;
-      warn.textContent = totalMins < 35
-        ? `⚠ Only ${totalMins}m set — need 35m of tasks for a full 45m block`
-        : `⚠ ${totalMins}m exceeds 35m target — consider trimming tasks`;
+      warn.textContent = totalMins < TARGET
+        ? `⚠ Only ${totalMins}m set — need ${TARGET}m of tasks (${useMini?'45m total with 10m mini loop':'45m total'})`
+        : `⚠ ${totalMins}m exceeds ${TARGET}m target`;
       setTimeout(() => { if (warn.parentNode) warn.remove(); }, 5000);
     }
-    return; // BLOCK the start
+    return; // block the start
   }
   ownerPost('start', { blockIndex: bi }).then(() => {
     setTimeout(() => {
@@ -812,13 +811,24 @@ function renderBlocks() {
     const canStart = isOwner && !isDone && !isRunning && state.phase==='idle' && prevAllDone;
     const startBtn = canStart ? `<button class="btn-start primary" data-start="${idx}">Start →</button>` : '';
 
-    // Live task time total chip
+    // Time chip — always show for non-done owner blocks
+    // Target: 45min total. Mini loop = 10min, so tasks need 35min WITH mini, 45min WITHOUT
     const totalMins = (block.tasks||[]).reduce((s,t) => s + (Number(t.minutes)||0), 0);
-    const TARGET = 35;
+    const useMini = state.miniLoop[idx] !== false;
+    const TARGET = useMini ? 35 : 45; // tasks target
+    const TOTAL_LABEL = useMini ? 45 : 45; // always aiming for 45 total
     let timeChip = '';
-    if (isOwner && !isDone && totalMins > 0) {
-      const color = totalMins < TARGET ? '#c05050' : totalMins === TARGET ? '#5a8b5a' : '#9b6fc0';
-      timeChip = `<span class="time-chip" data-bi="${idx}" style="color:${color};border:1px solid ${color}">${totalMins}m / ${TARGET}m</span>`;
+    if (isOwner && !isDone) {
+      const color = totalMins === 0 ? 'var(--text3)'
+        : totalMins < TARGET ? '#c05050'
+        : totalMins === TARGET ? '#5a8b5a'
+        : '#9b6fc0';
+      const label = totalMins === 0
+        ? `0m / ${TARGET}m tasks`
+        : totalMins < TARGET ? `${totalMins}m / ${TARGET}m ⚠`
+        : totalMins === TARGET ? `${totalMins}m ✓`
+        : `${totalMins}m / ${TARGET}m`;
+      timeChip = `<span class="time-chip" data-bi="${idx}" style="color:${color};border:1px solid ${color}">${label}</span>`;
     }
 
     const card = document.createElement('div');
@@ -1237,18 +1247,23 @@ function onTaskSave(bi, ti, val) {
 function onTimeChange(bi, ti, mins) {
   const t = getTask(bi, ti);
   setTask(bi, ti, t.text, Number(mins));
-  // Update time chip immediately without waiting for server
+  // Update time chip immediately
   const totalMins = (state.blocks[bi].tasks||[]).reduce((s,t) => s + (Number(t.minutes)||0), 0);
-  const TARGET = 35;
+  const useMini = state.miniLoop[bi] !== false;
+  const TARGET = useMini ? 35 : 45;
   const chip = document.querySelector(`.time-chip[data-bi="${bi}"]`);
-  if (chip && totalMins > 0) {
-    const color = totalMins < TARGET ? '#c05050' : totalMins === TARGET ? 'var(--green)' : '#9b6fc0';
+  if (chip) {
+    const color = totalMins === 0 ? 'var(--text3)'
+      : totalMins < TARGET ? '#c05050'
+      : totalMins === TARGET ? '#5a8b5a'
+      : '#9b6fc0';
+    const label = totalMins === 0 ? `0m / ${TARGET}m tasks`
+      : totalMins < TARGET ? `${totalMins}m / ${TARGET}m ⚠`
+      : totalMins === TARGET ? `${totalMins}m ✓`
+      : `${totalMins}m / ${TARGET}m`;
     chip.style.color = color; chip.style.borderColor = color;
-    chip.textContent = `${totalMins}m / ${TARGET}m`;
-  } else if (!chip && totalMins > 0) {
-    // Chip not yet visible — let next renderBlocks handle it
+    chip.textContent = label;
   }
-  // Save immediately (no debounce)
   ownerPost('update_block', {
     blockIndex: bi,
     label: state.blocks[bi].label,
