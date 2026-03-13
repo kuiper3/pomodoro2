@@ -18,6 +18,7 @@
       --amber:#9b7a52; --amber-dim:#1f180f;
       --green:#5a8b5a; --green-dim:#0d1a0d;
       --blue:#4a6b8b; --blue-dim:#0a0f18;
+      --red:#8b3a3a; --red-dim:#1a0a0a;
       --mono:'DM Mono',monospace; --serif:'Playfair Display',Georgia,serif;
     }
     html,body { height:100%; background:var(--bg); color:var(--text); font-family:var(--serif); overflow-x:hidden; }
@@ -60,7 +61,7 @@
 
     /* Mini loop row */
     .mini-loop-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); margin-bottom:4px; }
-    .mini-dot { width:5px; height:5px; border-radius:50%; background:var(--amber); flex-shrink:0; transition:background .2s; }
+    .mini-dot { width:5px; height:5px; border-radius:50%; background:var(--amber); flex-shrink:0; }
     .mini-label { font-family:var(--serif); font-size:13px; color:var(--amber); flex:1; }
     .mini-dur { font-family:var(--mono); font-size:10px; opacity:.6; }
     .mini-toggle { font-family:var(--mono); font-size:9px; letter-spacing:1px; text-transform:uppercase; padding:4px 10px; border-radius:2px; cursor:pointer; border:1px solid var(--border2); background:none; color:var(--text3); transition:all .2s; }
@@ -69,7 +70,7 @@
     .mini-toggle:disabled { cursor:default; opacity:.5; }
 
     /* Task rows */
-    .task-row { display:flex; align-items:center; gap:10px; position:relative; }
+    .task-row { display:flex; align-items:center; gap:8px; position:relative; }
     .task-dot { width:5px; height:5px; border-radius:50%; background:var(--border2); flex-shrink:0; }
     .block-card.active .task-dot { background:var(--amber); }
     .block-card.done   .task-dot { background:var(--green); }
@@ -78,8 +79,7 @@
     .task-input:focus { border-bottom-color:var(--border2); color:var(--text); }
     .task-input::placeholder { color:var(--text3); font-style:italic; }
     .task-input:disabled { cursor:default; }
-    .task-dd-arrow { position:absolute; right:2px; top:50%; transform:translateY(-50%); font-size:10px; color:var(--text3); cursor:pointer; user-select:none; padding:4px; transition:color .2s; }
-    .task-dd-arrow:hover { color:var(--amber); }
+    .task-dd-arrow { position:absolute; right:2px; top:50%; transform:translateY(-50%); font-size:10px; color:var(--text3); cursor:pointer; user-select:none; padding:4px; }
     .task-dropdown { display:none; position:absolute; left:0; top:calc(100% + 3px); background:#181818; border:1px solid var(--border2); border-radius:3px; z-index:50; width:100%; max-height:210px; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,.7); }
     .task-dropdown.open { display:block; }
     .dd-section { font-family:var(--mono); font-size:8px; letter-spacing:2px; color:var(--text3); text-transform:uppercase; padding:8px 12px 4px; border-bottom:1px solid var(--border); }
@@ -89,21 +89,37 @@
     .dd-item.hist { color:#b08a60; }
     .dd-item.hist:hover { color:var(--amber); background:#1c1510; }
     .dd-empty { font-family:var(--mono); font-size:10px; color:var(--text3); padding:12px; font-style:italic; }
-    .btn-remove { background:none; border:none; color:var(--text3); font-size:18px; cursor:pointer; padding:0 4px; line-height:1; }
+
+    /* Time picker */
+    .time-select { background:#161616; border:1px solid var(--border); color:var(--text3); font-family:var(--mono); font-size:10px; padding:4px 6px; border-radius:2px; cursor:pointer; flex-shrink:0; width:68px; }
+    .time-select:focus { outline:none; border-color:var(--border2); }
+
+    .btn-remove { background:none; border:none; color:var(--text3); font-size:18px; cursor:pointer; padding:0 2px; line-height:1; }
     .btn-add { background:none; border:none; color:var(--text3); font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; padding:8px 0; text-align:left; }
     .btn-add:disabled { cursor:default; opacity:.4; }
 
     /* Timer panel */
-    #timer-panel { width:300px; flex-shrink:0; background:#0c0c0c; padding:24px 20px; display:flex; flex-direction:column; gap:28px; position:sticky; top:57px; height:calc(100vh - 57px); overflow-y:auto; }
+    #timer-panel { width:300px; flex-shrink:0; background:#0c0c0c; padding:24px 20px; display:flex; flex-direction:column; gap:24px; position:sticky; top:57px; height:calc(100vh - 57px); overflow-y:auto; }
     .timer-phase { font-family:var(--mono); font-size:9px; letter-spacing:3px; text-transform:uppercase; }
     .timer-phase.mini { color:var(--amber); }
     .timer-phase.task { color:var(--green); }
     .timer-phase.brk  { color:var(--blue); }
     .timer-phase.idle { color:var(--text3); }
+    .timer-phase.paused { color:var(--red); }
     .timer-display { font-family:var(--mono); font-size:58px; letter-spacing:-2px; line-height:1; text-align:center; color:var(--text3); transition:color .5s; }
     .timer-display.active { color:var(--text); }
+    .timer-display.paused { color:var(--red); opacity:.7; }
     .progress-bar { height:2px; background:var(--border); border-radius:1px; overflow:hidden; }
     .progress-fill { height:100%; width:0%; border-radius:1px; transition:width 1s linear,background .5s; }
+
+    /* Timer controls */
+    .timer-controls { display:flex; gap:8px; }
+    .btn-ctrl { flex:1; font-family:var(--mono); font-size:9px; letter-spacing:1.5px; text-transform:uppercase; padding:9px 6px; border-radius:2px; cursor:pointer; border:1px solid var(--border); background:none; color:var(--text3); transition:all .2s; }
+    .btn-ctrl:hover { border-color:var(--border2); color:var(--text2); }
+    .btn-ctrl.pause { border-color:var(--amber); color:var(--amber); }
+    .btn-ctrl.resume { border-color:var(--green); color:var(--green); }
+    .btn-ctrl.stop  { border-color:var(--red); color:var(--red); }
+    .btn-ctrl.skip  { border-color:var(--border2); color:var(--text3); }
 
     .zone-list { display:flex; flex-direction:column; gap:6px; }
     .zone-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:2px; border:1px solid transparent; transition:all .4s ease; }
@@ -113,9 +129,6 @@
     .zone-name { flex:1; font-family:var(--serif); font-size:13px; color:var(--text2); }
     .zone-item.current .zone-name { color:var(--text); }
     .zone-dur { font-family:var(--mono); font-size:10px; color:var(--text3); }
-
-    .btn-skip { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:9px; width:100%; background:none; border:1px solid var(--border); color:var(--text3); cursor:pointer; border-radius:2px; transition:all .2s; }
-    .btn-skip:hover { border-color:var(--border2); color:var(--text2); }
 
     .break-card { border:1px solid #1a2a3a; border-radius:2px; background:var(--blue-dim); padding:20px; text-align:center; }
     .break-icon { font-size:28px; margin-bottom:8px; }
@@ -134,8 +147,22 @@
     .active-task { display:flex; gap:8px; align-items:flex-start; }
     .active-task-dot { width:4px; height:4px; border-radius:50%; background:var(--green); margin-top:7px; flex-shrink:0; }
     .active-task-text { font-family:var(--serif); font-size:13px; color:var(--text2); line-height:1.5; }
+    .active-task-time { font-family:var(--mono); font-size:10px; color:var(--text3); margin-left:auto; flex-shrink:0; }
 
-    /* Viewer overlay message */
+    /* Log section */
+    #log-section { padding:24px 20px; border-top:1px solid var(--border); }
+    .log-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+    .log-entries { display:flex; flex-direction:column; gap:12px; }
+    .log-entry { border:1px solid var(--border); border-radius:3px; background:var(--bg2); padding:14px 16px; }
+    .log-entry-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+    .log-entry-label { font-family:var(--serif); font-size:13px; color:var(--text); }
+    .log-entry-time { font-family:var(--mono); font-size:9px; color:var(--text3); letter-spacing:1px; }
+    .log-entry-tasks { display:flex; flex-direction:column; gap:4px; }
+    .log-task { display:flex; gap:8px; align-items:center; }
+    .log-task-dot { width:4px; height:4px; border-radius:50%; background:var(--green); flex-shrink:0; }
+    .log-task-text { font-family:var(--serif); font-size:12px; color:var(--text3); }
+    .log-empty { font-family:var(--mono); font-size:10px; color:var(--text3); font-style:italic; }
+
     .viewer-notice { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:1px; text-align:center; padding:12px; border:1px solid var(--border); border-radius:2px; }
 
     @media(max-width:640px) {
@@ -174,10 +201,10 @@
         <div class="timer-display" id="timer-display">──:──</div>
         <div class="progress-bar" style="margin-top:16px"><div class="progress-fill" id="progress-fill"></div></div>
       </div>
+      <div class="timer-controls" id="timer-controls" style="display:none"></div>
       <div id="mini-loop-section" style="display:none">
         <div class="panel-label" style="margin-bottom:10px">Mini Loop Zones</div>
         <div class="zone-list" id="zone-list"></div>
-        <button class="btn-skip" id="skip-btn" style="margin-top:12px;display:none" onclick="doSkipMini()">Skip to Focus →</button>
       </div>
       <div id="break-section" style="display:none">
         <div class="break-card">
@@ -202,15 +229,63 @@
       </div>
     </div>
   </main>
+  <div id="log-section">
+    <div class="log-header">
+      <div class="panel-label" style="margin-bottom:0">Completed Pomodoros</div>
+      <button class="btn-ghost" id="clear-log-btn" onclick="doClearLog()" style="display:none;font-size:9px;padding:4px 10px">Clear</button>
+    </div>
+    <div class="log-entries" id="log-entries">
+      <div class="log-empty">No completed blocks yet.</div>
+    </div>
+  </div>
 </div>
 
 <script>
 // ═══════════════════════════════════════════════════════
-//  CONFIGURATION
+//  CONFIG
 // ═══════════════════════════════════════════════════════
-const STATE_URL = '/api/state';
-const POLL_MS    = 1000;   // poll every second
-const SAVE_DELAY = 800;    // debounce block edits before sending
+const STATE_URL  = '/api/state';
+const POLL_MS    = 1000;
+const SAVE_DELAY = 800;
+
+// ═══════════════════════════════════════════════════════
+//  AUDIO — Web Audio API tones (no files needed)
+// ═══════════════════════════════════════════════════════
+let audioCtx = null;
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playTone(freq, duration, volume, type='sine') {
+  try {
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+function playZoneChime() {
+  // Soft single ding
+  playTone(880, 0.4, 0.15);
+}
+function playMiniComplete() {
+  // Three ascending tones
+  playTone(523, 0.3, 0.3);
+  setTimeout(() => playTone(659, 0.3, 0.3), 200);
+  setTimeout(() => playTone(784, 0.5, 0.4), 400);
+}
+function playBlockComplete() {
+  // Full fanfare
+  playTone(523, 0.3, 0.4);
+  setTimeout(() => playTone(659, 0.3, 0.4), 250);
+  setTimeout(() => playTone(784, 0.3, 0.4), 500);
+  setTimeout(() => playTone(1047, 0.8, 0.5), 750);
+}
 
 // ═══════════════════════════════════════════════════════
 //  PRESETS & HISTORY
@@ -227,11 +302,12 @@ const PRESETS = [
   'Wipe light switches & handles','Clean windows / glass doors',
   'Take recycling out','Vacuum sofa','Wipe TV & electronics',
 ];
+const TIME_OPTS = [0,5,10,15,20,25,30,35,40];
 
 function getHistory() { try { return JSON.parse(localStorage.getItem('pomo_history')||'[]'); } catch { return []; } }
 function pushHistory(v) {
   if (!v.trim()) return;
-  let h = getHistory().filter(t=>t.toLowerCase()!==v.toLowerCase());
+  let h = getHistory().filter(t => t.toLowerCase() !== v.toLowerCase());
   h.unshift(v.trim());
   try { localStorage.setItem('pomo_history', JSON.stringify(h.slice(0,40))); } catch {}
 }
@@ -240,41 +316,33 @@ function pushHistory(v) {
 //  STATE
 // ═══════════════════════════════════════════════════════
 const ZONES = [
-  {name:'Computer',duration:3,icon:'💻'},
-  {name:'Bed Area', duration:2,icon:'🛏️'},
-  {name:'Bathroom', duration:2,icon:'🚿'},
-  {name:'Kitchen',  duration:3,icon:'🍳'},
+  {name:'Computer', duration:3, icon:'💻'},
+  {name:'Bed Area',  duration:2, icon:'🛏️'},
+  {name:'Bathroom',  duration:2, icon:'🚿'},
+  {name:'Kitchen',   duration:3, icon:'🍳'},
 ];
 const ZONE_BOUNDS = [0,180,300,420,600];
 
-let state       = null;   // latest from server
-let ownerToken  = null;   // set if we are owner
-let isOwner     = false;
-let pollTimer   = null;
-let openWrap    = null;
-let saveTimers  = {};     // debounce per block
+let state      = null;
+let ownerToken = null;
+let isOwner    = false;
+let pollTimer  = null;
+let openWrap   = null;
+let saveTimers = {};
+let prevZone   = -1;
+let prevPhase  = null;
 
 // ═══════════════════════════════════════════════════════
-//  BOOT — detect owner token
+//  BOOT
 // ═══════════════════════════════════════════════════════
 (async function boot() {
-  // Check if owner token stored locally
   const stored = sessionStorage.getItem('pomo_owner_token');
-  if (stored) {
-    ownerToken = stored;
-  } else {
-    // First visit — fetch token from server
-    await claimOwner();
-  }
-
-  // First poll — server will confirm if token is valid
+  if (stored) { ownerToken = stored; }
+  else { await claimOwner(); }
   await poll();
   startPolling();
 })();
 
-// ═══════════════════════════════════════════════════════
-//  OWNER SETUP (first visit — fetch token)
-// ═══════════════════════════════════════════════════════
 async function claimOwner() {
   try {
     const r = await fetch(`${STATE_URL}?action=setup`);
@@ -283,17 +351,14 @@ async function claimOwner() {
       ownerToken = d.ownerToken;
       sessionStorage.setItem('pomo_owner_token', ownerToken);
       isOwner = true;
-      renderUI();
     }
-  } catch(e) { console.error(e); }
+  } catch(e) {}
 }
 
 // ═══════════════════════════════════════════════════════
 //  POLLING
 // ═══════════════════════════════════════════════════════
-function startPolling() {
-  pollTimer = setInterval(poll, POLL_MS);
-}
+function startPolling() { pollTimer = setInterval(poll, POLL_MS); }
 
 async function poll() {
   try {
@@ -302,26 +367,35 @@ async function poll() {
     const r = await fetch(`${STATE_URL}?action=get&_=${Date.now()}`, { headers });
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
-
-    // Sync owner token from server on first load
     if (d.isOwner && d.ownerToken && !ownerToken) {
       ownerToken = d.ownerToken;
       sessionStorage.setItem('pomo_owner_token', ownerToken);
     }
-
+    // Sound triggers
+    if (state) checkSoundTriggers(state, d);
     isOwner = !!d.isOwner;
     state   = d;
     setSyncDot('live');
     renderUI();
-  } catch(e) {
-    setSyncDot('err');
-  }
+  } catch(e) { setSyncDot('err'); }
 }
 
-function setSyncDot(status) {
+function checkSoundTriggers(prev, next) {
+  // Zone change during mini
+  if (next.phase === 'mini' && prev.phase === 'mini') {
+    const zi = getZone(next.elapsed);
+    const pi = getZone(prev.elapsed);
+    if (zi !== pi) playZoneChime();
+  }
+  // Mini loop completed → task starts
+  if (prev.phase === 'mini' && next.phase === 'task') playMiniComplete();
+  // Task completed → break
+  if (prev.phase === 'task' && next.phase === 'break') playBlockComplete();
+}
+
+function setSyncDot(s) {
   const dot = document.getElementById('sync-dot');
-  dot.className = 'sync-dot' + (status==='live'?' live':status==='err'?' err':'');
-  dot.title = status==='live'?'Synced':status==='err'?'Connection error':'Connecting…';
+  dot.className = 'sync-dot' + (s==='live'?' live':s==='err'?' err':'');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -341,10 +415,14 @@ async function ownerPost(action, body={}) {
   } catch(e) { console.error(e); }
 }
 
-function doStart(bi)      { ownerPost('start',       { blockIndex: bi }); }
+function doStart(bi)      { ownerPost('start', { blockIndex: bi }); }
+function doPause()        { ownerPost('pause'); }
+function doResume()       { ownerPost('resume'); }
+function doStop()         { ownerPost('stop'); }
 function doSkipMini()     { ownerPost('skip_mini'); }
 function doReset()        { ownerPost('reset'); }
 function doToggleMini(bi) { ownerPost('toggle_mini', { blockIndex: bi }); }
+function doClearLog()     { if (confirm('Clear completed log?')) ownerPost('clear_log'); }
 
 function scheduleBlockSave(bi) {
   clearTimeout(saveTimers[bi]);
@@ -366,32 +444,27 @@ function renderUI() {
   renderHeader();
   renderBlocks();
   renderTimerPanel();
+  renderLog();
 }
 
 function renderHeader() {
   document.getElementById('done-pill').textContent =
     `${(state.completedBlocks||[]).length} / ${state.blocks.length} done`;
-
   const badge = document.getElementById('mode-badge');
-  badge.innerHTML = isOwner
-    ? ''
-    : '<div class="viewer-badge">👁 Viewing live</div>';
-
+  badge.innerHTML = isOwner ? '' : '<div class="viewer-badge">👁 Viewing live</div>';
   document.getElementById('reset-btn').style.display = isOwner ? 'block' : 'none';
 }
 
 function renderBlocks() {
   const c = document.getElementById('blocks-container');
-  // Preserve focus — don't re-render if user is typing
-  if (document.activeElement && document.activeElement.classList.contains('task-input')) return;
-
+  if (document.activeElement && (document.activeElement.classList.contains('task-input') ||
+      document.activeElement.classList.contains('block-title-input'))) return;
   c.innerHTML = '';
   state.blocks.forEach((block, idx) => {
     const isActive = state.activeBlock===idx && (state.phase==='mini'||state.phase==='task');
     const isDone   = (state.completedBlocks||[]).includes(idx);
     const isNext   = !isDone && idx===(state.completedBlocks||[]).length && state.phase==='idle';
     const status   = isDone?'✓ Completed':isActive?'● Active':isNext?'Next up':`Block ${idx+1}`;
-
     const startBtn = isOwner && !isDone && state.phase==='idle'
       ? `<button class="btn-start ${isNext?'primary':''}" onclick="doStart(${idx})">Start →</button>` : '';
 
@@ -404,24 +477,22 @@ function renderBlocks() {
           ${isOwner
             ? `<input class="block-title-input" value="${esc(block.label)}" placeholder="Block title…"
                 oninput="state.blocks[${idx}].label=this.value;scheduleBlockSave(${idx});" />`
-            : `<div class="block-title-static">${esc(block.label)}</div>`
-          }
+            : `<div class="block-title-static">${esc(block.label)}</div>`}
         </div>
         ${startBtn}
       </div>
       <div class="task-list" id="tl-${idx}"></div>
-      ${isOwner && block.tasks.length<3
+      ${isOwner && block.tasks.length < 3
         ? `<button class="btn-add" onclick="addTask(${idx})">+ add task</button>` : ''}
     `;
     c.appendChild(card);
     renderTaskList(idx);
   });
-
   if (!isOwner) {
-    const notice = document.createElement('div');
-    notice.className = 'viewer-notice';
-    notice.textContent = 'You are viewing this session live — controls are owner-only';
-    c.appendChild(notice);
+    const n = document.createElement('div');
+    n.className = 'viewer-notice';
+    n.textContent = 'You are viewing this session live — controls are owner-only';
+    c.appendChild(n);
   }
 }
 
@@ -430,7 +501,7 @@ function renderTaskList(bi) {
   if (!list) return;
   list.innerHTML = '';
   const block = state.blocks[bi];
-  const on    = state.miniLoop[bi] !== false;
+  const on = state.miniLoop[bi] !== false;
 
   // Mini Loop row
   const mr = document.createElement('div');
@@ -442,36 +513,43 @@ function renderTaskList(bi) {
     </span>
     ${isOwner
       ? `<button class="mini-toggle ${on?'on':'off'}" onclick="doToggleMini(${bi})">${on?'Include':'Skipped'}</button>`
-      : `<span class="mini-toggle ${on?'on':'off'}" style="cursor:default">${on?'Include':'Skipped'}</span>`
-    }
+      : `<span class="mini-toggle ${on?'on':'off'}" style="cursor:default">${on?'Include':'Skipped'}</span>`}
   `;
   list.appendChild(mr);
 
   // Task rows
   const ph = ['Main task…','Secondary task…','Optional task…'];
-  block.tasks.forEach((task, ti) => {
+  (block.tasks || []).forEach((task, ti) => {
+    const taskText = typeof task === 'string' ? task : (task.text || '');
+    const taskMins = typeof task === 'object' ? (task.minutes || 0) : 0;
     const row = document.createElement('div');
     row.className = 'task-row';
     if (isOwner) {
+      const timeOpts = TIME_OPTS.map(m =>
+        `<option value="${m}" ${taskMins===m?'selected':''}>${m===0?'—':m+'m'}</option>`
+      ).join('');
       row.innerHTML = `
         <div class="task-dot"></div>
         <div class="task-input-wrap" id="wrap-${bi}-${ti}">
           <input class="task-input" id="inp-${bi}-${ti}"
-            value="${esc(task)}" placeholder="${ph[ti]||'Task…'}" autocomplete="off"
+            value="${esc(taskText)}" placeholder="${ph[ti]||'Task…'}" autocomplete="off"
             oninput="onTaskInput(${bi},${ti},this.value)"
             onchange="onTaskSave(${bi},${ti},this.value)"
             onfocus="openDD(${bi},${ti})" />
           <span class="task-dd-arrow" onmousedown="event.preventDefault();toggleDD(${bi},${ti})">▾</span>
           <div class="task-dropdown" id="dd-${bi}-${ti}"></div>
         </div>
+        <select class="time-select" title="Task duration"
+          onchange="onTimeChange(${bi},${ti},this.value)">${timeOpts}</select>
         ${block.tasks.length>1?`<button class="btn-remove" onclick="removeTask(${bi},${ti})">×</button>`:''}
       `;
     } else {
       row.innerHTML = `
         <div class="task-dot"></div>
-        <span style="font-family:var(--serif);font-size:13px;color:${task?'var(--text2)':'var(--text3)'};font-style:${task?'normal':'italic'}">
-          ${task ? esc(task) : ph[ti]||'Task…'}
+        <span style="flex:1;font-family:var(--serif);font-size:13px;color:${taskText?'var(--text2)':'var(--text3)'};font-style:${taskText?'normal':'italic'}">
+          ${taskText ? esc(taskText) : ph[ti]||'Task…'}
         </span>
+        ${taskMins ? `<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${taskMins}m</span>` : ''}
       `;
     }
     list.appendChild(row);
@@ -481,33 +559,57 @@ function renderTaskList(bi) {
 function renderTimerPanel() {
   if (!state) return;
   const phase = state.phase;
+  const paused = state.paused;
 
   const display = document.getElementById('timer-display');
   display.textContent = phase==='idle' ? '──:──' : fmt(state.secondsLeft);
-  display.classList.toggle('active', phase!=='idle');
+  display.className = 'timer-display' + (phase!=='idle'?(paused?' paused':' active'):'');
 
   const label = document.getElementById('phase-label');
   label.className = 'timer-phase';
-  const map = {mini:['Mini Loop','mini'],task:['Focus Work','task'],break:['Break','brk'],idle:['Ready','idle']};
-  const [txt,cls] = map[phase]||['Ready','idle'];
-  label.textContent=txt; label.classList.add(cls);
+  if (paused) { label.textContent = '⏸ Paused'; label.classList.add('paused'); }
+  else {
+    const map = {mini:['Mini Loop','mini'],task:['Focus Work','task'],break:['Break','brk'],idle:['Ready','idle']};
+    const [txt,cls] = map[phase]||['Ready','idle'];
+    label.textContent=txt; label.classList.add(cls);
+  }
 
-  let pct=0;
-  if (phase==='mini')  pct=((600 -state.secondsLeft)/600)*100;
-  if (phase==='task')  pct=((2100-state.secondsLeft)/2100)*100;
-  if (phase==='break') pct=((900 -state.secondsLeft)/900)*100;
+  let pct=0, fillColor='var(--text3)';
+  if (phase==='mini')  { pct=((600 -state.secondsLeft)/600)*100; fillColor='var(--amber)'; }
+  if (phase==='task')  { const d=getTaskDurFromState();pct=((d-state.secondsLeft)/d)*100; fillColor='var(--green)'; }
+  if (phase==='break') { pct=((900-state.secondsLeft)/900)*100; fillColor='var(--blue)'; }
   const fill = document.getElementById('progress-fill');
-  fill.style.width=pct+'%';
-  fill.style.background=phase==='mini'?'var(--amber)':phase==='task'?'var(--green)':'var(--blue)';
+  fill.style.width = pct+'%';
+  fill.style.background = fillColor;
 
-  document.getElementById('mini-loop-section').style.display  = phase==='mini'  ?'block':'none';
-  document.getElementById('break-section').style.display      = phase==='break' ?'block':'none';
-  document.getElementById('idle-section').style.display       = phase==='idle'  ?'block':'none';
-  document.getElementById('active-tasks-section').style.display=(phase==='task'||phase==='mini')?'block':'none';
+  // Controls
+  const ctrl = document.getElementById('timer-controls');
+  ctrl.innerHTML = '';
+  if (isOwner && phase !== 'idle') {
+    if (!paused) {
+      const pb = document.createElement('button');
+      pb.className='btn-ctrl pause'; pb.textContent='⏸ Pause'; pb.onclick=doPause;
+      ctrl.appendChild(pb);
+    } else {
+      const rb = document.createElement('button');
+      rb.className='btn-ctrl resume'; rb.textContent='▶ Resume'; rb.onclick=doResume;
+      ctrl.appendChild(rb);
+    }
+    const sb = document.createElement('button');
+    sb.className='btn-ctrl stop'; sb.textContent='■ Stop'; sb.onclick=()=>{if(confirm('Stop this block?'))doStop();};
+    ctrl.appendChild(sb);
+    if (!paused && phase==='mini') {
+      const sk = document.createElement('button');
+      sk.className='btn-ctrl skip'; sk.textContent='Skip →'; sk.onclick=doSkipMini;
+      ctrl.appendChild(sk);
+    }
+  }
+  ctrl.style.display = (isOwner && phase !== 'idle') ? 'flex' : 'none';
 
-  // Skip button — owner only
-  const skipBtn = document.getElementById('skip-btn');
-  if (skipBtn) skipBtn.style.display = (isOwner && phase==='mini') ? 'block' : 'none';
+  document.getElementById('mini-loop-section').style.display   = phase==='mini'  ?'block':'none';
+  document.getElementById('break-section').style.display       = phase==='break' ?'block':'none';
+  document.getElementById('idle-section').style.display        = phase==='idle'  ?'block':'none';
+  document.getElementById('active-tasks-section').style.display= (phase==='task'||phase==='mini')?'block':'none';
 
   if (phase==='mini') {
     const zi = getZone(state.elapsed);
@@ -526,35 +628,86 @@ function renderTimerPanel() {
     document.getElementById('active-block-label').textContent = state.blocks[ab]?.label||`Block ${ab+1}`;
     const tl = document.getElementById('active-tasks-list');
     tl.innerHTML='';
-    const filled=(state.blocks[ab]?.tasks||[]).filter(t=>t.trim());
+    const tasks = state.blocks[ab]?.tasks||[];
+    const filled = tasks.filter(t => (typeof t==='string'?t:t.text||'').trim());
     if (!filled.length) {
       tl.innerHTML=`<span style="font-family:var(--mono);font-size:11px;color:var(--text3);font-style:italic">No tasks added</span>`;
     } else {
       filled.forEach(t=>{
+        const text = typeof t==='string'?t:t.text;
+        const mins = typeof t==='object'?t.minutes:0;
         const d=document.createElement('div'); d.className='active-task';
-        d.innerHTML=`<div class="active-task-dot"></div><span class="active-task-text">${esc(t)}</span>`;
+        d.innerHTML=`<div class="active-task-dot"></div><span class="active-task-text">${esc(text)}</span>${mins?`<span class="active-task-time">${mins}m</span>`:''}`;
         tl.appendChild(d);
       });
     }
   }
 }
 
+function renderLog() {
+  const el = document.getElementById('log-entries');
+  const clearBtn = document.getElementById('clear-log-btn');
+  const log = state.log || [];
+  clearBtn.style.display = (isOwner && log.length) ? 'block' : 'none';
+  if (!log.length) {
+    el.innerHTML = '<div class="log-empty">No completed blocks yet.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  [...log].reverse().forEach(entry => {
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    const dt = new Date(entry.completedAt * 1000);
+    const timeStr = dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const dateStr = dt.toLocaleDateString([], {month:'short',day:'numeric'});
+    const taskHTML = (entry.tasks||[]).length
+      ? (entry.tasks||[]).map(t => {
+          const text = typeof t==='string'?t:t.text;
+          const mins = typeof t==='object'?t.minutes:0;
+          return `<div class="log-task"><div class="log-task-dot"></div><span class="log-task-text">${esc(text)}${mins?` <span style="color:var(--text3)">(${mins}m)</span>`:''}</span></div>`;
+        }).join('')
+      : '<span class="log-task-text" style="font-style:italic;color:var(--text3)">No tasks recorded</span>';
+    div.innerHTML = `
+      <div class="log-entry-header">
+        <span class="log-entry-label">${esc(entry.blockLabel||'Block')}</span>
+        <span class="log-entry-time">${dateStr} · ${timeStr}</span>
+      </div>
+      <div class="log-entry-tasks">${taskHTML}</div>
+    `;
+    el.appendChild(div);
+  });
+}
+
 // ═══════════════════════════════════════════════════════
-//  TASK EDITING (owner only)
+//  TASK EDITING
 // ═══════════════════════════════════════════════════════
+function getTask(bi, ti) {
+  const t = state.blocks[bi].tasks[ti];
+  return typeof t === 'string' ? { text: t, minutes: 0 } : (t || { text: '', minutes: 0 });
+}
+function setTask(bi, ti, text, minutes) {
+  state.blocks[bi].tasks[ti] = { text, minutes: Number(minutes)||0 };
+}
 function onTaskInput(bi, ti, val) {
-  state.blocks[bi].tasks[ti] = val;
+  const t = getTask(bi, ti);
+  setTask(bi, ti, val, t.minutes);
   buildDD(bi, ti, val);
   scheduleBlockSave(bi);
 }
 function onTaskSave(bi, ti, val) {
-  state.blocks[bi].tasks[ti] = val;
+  const t = getTask(bi, ti);
+  setTask(bi, ti, val, t.minutes);
   if (val.trim()) pushHistory(val.trim());
   scheduleBlockSave(bi);
 }
+function onTimeChange(bi, ti, mins) {
+  const t = getTask(bi, ti);
+  setTask(bi, ti, t.text, Number(mins));
+  scheduleBlockSave(bi);
+}
 function addTask(bi) {
-  if (state.blocks[bi].tasks.length>=3) return;
-  state.blocks[bi].tasks.push('');
+  if (state.blocks[bi].tasks.length >= 3) return;
+  state.blocks[bi].tasks.push({ text: '', minutes: 0 });
   ownerPost('update_block',{blockIndex:bi,label:state.blocks[bi].label,tasks:state.blocks[bi].tasks,miniLoop:state.miniLoop[bi]});
 }
 function removeTask(bi, ti) {
@@ -565,18 +718,18 @@ function removeTask(bi, ti) {
 // ═══════════════════════════════════════════════════════
 //  DROPDOWN
 // ═══════════════════════════════════════════════════════
-document.addEventListener('click', e=>{
+document.addEventListener('click', e => {
   if (openWrap && !openWrap.contains(e.target)) closeAllDD();
 });
 function closeAllDD() {
   document.querySelectorAll('.task-dropdown.open').forEach(d=>d.classList.remove('open'));
-  openWrap=null;
+  openWrap = null;
 }
 function buildDD(bi, ti, query) {
-  const dd=document.getElementById(`dd-${bi}-${ti}`); if(!dd)return;
-  const q=query.trim().toLowerCase();
-  const hist=getHistory().filter(t=>!q||t.toLowerCase().includes(q)).slice(0,5);
-  const presets=PRESETS.filter(t=>(!q||t.toLowerCase().includes(q))&&!hist.some(h=>h.toLowerCase()===t.toLowerCase())).slice(0,8);
+  const dd = document.getElementById(`dd-${bi}-${ti}`); if(!dd)return;
+  const q = query.trim().toLowerCase();
+  const hist = getHistory().filter(t=>!q||t.toLowerCase().includes(q)).slice(0,5);
+  const presets = PRESETS.filter(t=>(!q||t.toLowerCase().includes(q))&&!hist.some(h=>h.toLowerCase()===t.toLowerCase())).slice(0,8);
   dd.innerHTML='';
   if(!hist.length&&!presets.length){dd.innerHTML=`<div class="dd-empty">No suggestions</div>`;return;}
   if(hist.length){
@@ -588,9 +741,9 @@ function buildDD(bi, ti, query) {
     presets.forEach(t=>{const d=document.createElement('div');d.className='dd-item';d.textContent=t;d.onmousedown=e=>{e.preventDefault();pick(bi,ti,t);};dd.appendChild(d);});
   }
 }
-function openDD(bi,ti){buildDD(bi,ti,state.blocks[bi].tasks[ti]||'');closeAllDD();const dd=document.getElementById(`dd-${bi}-${ti}`);const wrap=document.getElementById(`wrap-${bi}-${ti}`);if(dd&&wrap){dd.classList.add('open');openWrap=wrap;}}
+function openDD(bi,ti){buildDD(bi,ti,getTask(bi,ti).text||'');closeAllDD();const dd=document.getElementById(`dd-${bi}-${ti}`);const wrap=document.getElementById(`wrap-${bi}-${ti}`);if(dd&&wrap){dd.classList.add('open');openWrap=wrap;}}
 function toggleDD(bi,ti){const dd=document.getElementById(`dd-${bi}-${ti}`);if(!dd)return;if(dd.classList.contains('open')){closeAllDD();return;}openDD(bi,ti);}
-function pick(bi,ti,val){state.blocks[bi].tasks[ti]=val;pushHistory(val);closeAllDD();onTaskSave(bi,ti,val);renderTaskList(bi);}
+function pick(bi,ti,val){const t=getTask(bi,ti);setTask(bi,ti,val,t.minutes);pushHistory(val);closeAllDD();onTaskSave(bi,ti,val);renderTaskList(bi);}
 
 // ═══════════════════════════════════════════════════════
 //  UTILS
@@ -598,8 +751,14 @@ function pick(bi,ti,val){state.blocks[bi].tasks[ti]=val;pushHistory(val);closeAl
 function getZone(e){for(let i=0;i<ZONES.length;i++){if(e<ZONE_BOUNDS[i+1])return i;}return ZONES.length-1;}
 function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function getTaskDurFromState(){
+  if(!state)return 2100;
+  const block=state.blocks[state.activeBlock];
+  if(!block)return 2100;
+  const sum=(block.tasks||[]).reduce((a,t)=>a+(Number(t.minutes)||0),0);
+  return sum>0?sum*60:2100;
+}
 
-// ── PWA install ──
 let deferredPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;});
 </script>
