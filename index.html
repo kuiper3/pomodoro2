@@ -80,7 +80,7 @@
     .task-input::placeholder { color:var(--text3); font-style:italic; }
     .task-input:disabled { cursor:default; }
     .task-dd-arrow { position:absolute; right:2px; top:50%; transform:translateY(-50%); font-size:10px; color:var(--text3); cursor:pointer; user-select:none; padding:4px; }
-    .task-dropdown { display:none; position:absolute; left:0; top:calc(100% + 3px); background:#181818; border:1px solid var(--border2); border-radius:3px; z-index:50; width:100%; max-height:210px; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,.7); }
+    .task-dropdown { display:none; position:fixed; background:#181818; border:1px solid var(--border2); border-radius:3px; z-index:200; width:280px; max-height:240px; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,.85); }
     .task-dropdown.open { display:block; }
     .dd-section { font-family:var(--mono); font-size:8px; letter-spacing:2px; color:var(--text3); text-transform:uppercase; padding:8px 12px 4px; border-bottom:1px solid var(--border); }
     .dd-item { font-family:var(--serif); font-size:13px; color:var(--text2); padding:9px 12px; cursor:pointer; transition:background .12s,color .12s; border-bottom:1px solid var(--border); }
@@ -853,38 +853,49 @@ function removeTask(bi, ti) {
 // ═══════════════════════════════════════════════════════
 //  DROPDOWN
 // ═══════════════════════════════════════════════════════
-document.addEventListener('click', e => {
-  if (e.target.classList.contains('time-select') || e.target.closest('.time-select')) return;
-  if (openWrap && !openWrap.contains(e.target)) closeAllDD();
+let _ddJustOpened = false; // flag to prevent immediate close on same click cycle
+
+document.addEventListener('mousedown', e => {
+  if (e.target.classList.contains('time-select') || e.target.closest && e.target.closest('.time-select')) return;
+  // If click is inside the open wrap, do nothing — let the item handler run
+  if (openWrap && openWrap.contains(e.target)) return;
+  // If click is on a dd-arrow, let toggleDD handle it
+  if (e.target.classList.contains('task-dd-arrow')) return;
+  // Otherwise close
+  if (openWrap) closeAllDD();
 });
+
+// Prevent the above from closing a dropdown we just opened
+document.addEventListener('click', e => {
+  if (_ddJustOpened) { _ddJustOpened = false; return; }
+});
+
 function closeAllDD() {
   document.querySelectorAll('.task-dropdown.open').forEach(d=>d.classList.remove('open'));
   openWrap = null;
 }
+
 function buildDD(bi, ti, query) {
   const dd = document.getElementById(`dd-${bi}-${ti}`); if(!dd) return;
   const q = query.trim().toLowerCase();
   const currentVal = (getTask(bi, ti).text || '').trim().toLowerCase();
-  // History: items that match query (always include current value even if query empty)
-  const hist = getHistory().filter(t => {
-    if (!q) return true; // show all history when no query
-    return t.toLowerCase().includes(q);
-  }).slice(0, 6);
-  // Presets: match query, don't duplicate history entries
+  const hist = getHistory().slice(0, 8);
+  // Show all presets; only skip ones already in history (exact match)
   const presets = PRESETS.filter(t => {
     if (q && !t.toLowerCase().includes(q)) return false;
     return !hist.some(h => h.toLowerCase() === t.toLowerCase());
-  }).slice(0, 10);
+  }).slice(0, 12);
   dd.innerHTML = '';
   if (!hist.length && !presets.length) { dd.innerHTML=`<div class="dd-empty">No suggestions</div>`; return; }
   if (hist.length) {
     dd.innerHTML += `<div class="dd-section">Recent</div>`;
     hist.forEach(t => {
       const d = document.createElement('div');
-      d.className = 'dd-item hist' + (t.toLowerCase()===currentVal ? ' selected' : '');
-      if (t.toLowerCase()===currentVal) d.style.cssText='color:var(--amber);background:#1c1510';
+      const isCurrent = t.toLowerCase() === currentVal;
+      d.className = 'dd-item hist';
+      if (isCurrent) d.style.cssText = 'color:var(--amber);background:#1c1510';
       d.textContent = t;
-      d.onmousedown = e => { e.preventDefault(); pick(bi,ti,t); };
+      d.onmousedown = e => { e.preventDefault(); e.stopPropagation(); pick(bi,ti,t); };
       dd.appendChild(d);
     });
   }
@@ -894,27 +905,35 @@ function buildDD(bi, ti, query) {
       const d = document.createElement('div');
       d.className = 'dd-item';
       d.textContent = t;
-      d.onmousedown = e => { e.preventDefault(); pick(bi,ti,t); };
+      d.onmousedown = e => { e.preventDefault(); e.stopPropagation(); pick(bi,ti,t); };
       dd.appendChild(d);
     });
   }
 }
+
 function openDD(bi,ti) {
   const dd   = document.getElementById(`dd-${bi}-${ti}`);
   const wrap = document.getElementById(`wrap-${bi}-${ti}`);
   if (!dd || !wrap) return;
-  // Close others first, then open this one
   document.querySelectorAll('.task-dropdown.open').forEach(d=>d.classList.remove('open'));
   openWrap = wrap;
   buildDD(bi, ti, getTask(bi,ti).text || '');
+  // Position fixed relative to wrap
+  const rect = wrap.getBoundingClientRect();
+  dd.style.top  = (rect.bottom + 3) + 'px';
+  dd.style.left = rect.left + 'px';
+  dd.style.width = rect.width + 'px';
   dd.classList.add('open');
+  _ddJustOpened = true;
 }
+
 function toggleDD(bi,ti) {
   const dd = document.getElementById(`dd-${bi}-${ti}`);
   if (!dd) return;
   if (dd.classList.contains('open')) { closeAllDD(); return; }
   openDD(bi, ti);
 }
+
 function pick(bi,ti,val) {
   const t = getTask(bi,ti);
   setTask(bi,ti,val,t.minutes);
