@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Pomodoro" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Pomodoro · 45·15</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0f0f0f; --bg2:#111; --border:#1f1f1f; --border2:#2a2a2a;
+      --text:#e0d8cc; --text2:#888; --text3:#444;
+      --amber:#9b7a52; --amber-dim:#1f180f;
+      --green:#5a8b5a; --green-dim:#0d1a0d;
+      --blue:#4a6b8b; --blue-dim:#0a0f18;
+      --mono:'DM Mono',monospace; --serif:'Playfair Display',Georgia,serif;
+    }
+    html,body { height:100%; background:var(--bg); color:var(--text); font-family:var(--serif); overflow-x:hidden; }
+    #app { display:flex; flex-direction:column; min-height:100vh; }
+
+    /* Header */
+    header { position:sticky; top:0; z-index:20; background:var(--bg); border-bottom:1px solid var(--border); padding:16px 20px; display:flex; align-items:center; justify-content:space-between; }
+    .logo-group { display:flex; flex-direction:column; gap:2px; }
+    .logo-eyebrow { font-family:var(--mono); font-size:9px; letter-spacing:3px; color:var(--text3); text-transform:uppercase; }
+    .logo-title { font-family:var(--serif); font-size:20px; }
+    .header-right { display:flex; gap:10px; align-items:center; }
+    .pill { font-family:var(--mono); font-size:10px; letter-spacing:1.5px; color:var(--text3); border:1px solid var(--border2); padding:5px 12px; border-radius:2px; text-transform:uppercase; }
+    .viewer-badge { font-family:var(--mono); font-size:9px; letter-spacing:2px; color:var(--blue); border:1px solid var(--blue-dim); padding:5px 10px; border-radius:2px; text-transform:uppercase; }
+    .btn-ghost { font-family:var(--mono); font-size:10px; letter-spacing:1.5px; color:var(--text3); background:none; border:1px solid var(--border); padding:5px 12px; border-radius:2px; cursor:pointer; text-transform:uppercase; transition:color .2s,border-color .2s; }
+    .btn-ghost:hover { color:var(--text2); border-color:var(--border2); }
+    .sync-dot { width:6px; height:6px; border-radius:50%; background:var(--text3); display:inline-block; margin-left:4px; transition:background .3s; }
+    .sync-dot.live { background:var(--green); }
+    .sync-dot.err  { background:#8b3a3a; }
+
+    /* Layout */
+    main { display:flex; flex:1; }
+    #blocks-panel { flex:1; padding:24px 20px; overflow-y:auto; border-right:1px solid var(--border); }
+    .panel-label { font-family:var(--mono); font-size:9px; letter-spacing:3px; color:var(--text3); text-transform:uppercase; margin-bottom:20px; }
+
+    /* Block cards */
+    .block-card { border:1px solid var(--border); border-radius:3px; background:var(--bg2); padding:20px; margin-bottom:16px; transition:border-color .3s,background .3s; }
+    .block-card.active { border-color:var(--amber); background:var(--amber-dim); }
+    .block-card.done   { border-color:#1a2a1a; background:var(--green-dim); opacity:.6; }
+    .block-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
+    .block-status { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--text3); margin-bottom:5px; }
+    .block-card.active .block-status { color:var(--amber); }
+    .block-card.done   .block-status { color:var(--green); }
+    .block-title-input { background:none; border:none; color:var(--text); font-family:var(--serif); font-size:15px; outline:none; width:100%; }
+    .block-title-input:disabled { opacity:.7; cursor:default; }
+    .block-title-static { font-family:var(--serif); font-size:15px; color:var(--text); }
+    .btn-start { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:7px 14px; border-radius:2px; cursor:pointer; border:1px solid var(--border2); background:none; color:var(--text3); white-space:nowrap; transition:all .2s; }
+    .btn-start.primary { background:var(--amber); border-color:var(--amber); color:#fff; }
+
+    .task-list { display:flex; flex-direction:column; gap:8px; }
+
+    /* Mini loop row */
+    .mini-loop-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); margin-bottom:4px; }
+    .mini-dot { width:5px; height:5px; border-radius:50%; background:var(--amber); flex-shrink:0; transition:background .2s; }
+    .mini-label { font-family:var(--serif); font-size:13px; color:var(--amber); flex:1; }
+    .mini-dur { font-family:var(--mono); font-size:10px; opacity:.6; }
+    .mini-toggle { font-family:var(--mono); font-size:9px; letter-spacing:1px; text-transform:uppercase; padding:4px 10px; border-radius:2px; cursor:pointer; border:1px solid var(--border2); background:none; color:var(--text3); transition:all .2s; }
+    .mini-toggle.on  { border-color:var(--amber); color:var(--amber); }
+    .mini-toggle.off { border-color:#2a1a0a; color:#5a4030; }
+    .mini-toggle:disabled { cursor:default; opacity:.5; }
+
+    /* Task rows */
+    .task-row { display:flex; align-items:center; gap:10px; position:relative; }
+    .task-dot { width:5px; height:5px; border-radius:50%; background:var(--border2); flex-shrink:0; }
+    .block-card.active .task-dot { background:var(--amber); }
+    .block-card.done   .task-dot { background:var(--green); }
+    .task-input-wrap { flex:1; position:relative; }
+    .task-input { width:100%; background:none; border:none; border-bottom:1px solid var(--border); color:var(--text2); font-family:var(--serif); font-size:13px; padding:5px 22px 5px 0; outline:none; transition:border-color .2s,color .2s; }
+    .task-input:focus { border-bottom-color:var(--border2); color:var(--text); }
+    .task-input::placeholder { color:var(--text3); font-style:italic; }
+    .task-input:disabled { cursor:default; }
+    .task-dd-arrow { position:absolute; right:2px; top:50%; transform:translateY(-50%); font-size:10px; color:var(--text3); cursor:pointer; user-select:none; padding:4px; transition:color .2s; }
+    .task-dd-arrow:hover { color:var(--amber); }
+    .task-dropdown { display:none; position:absolute; left:0; top:calc(100% + 3px); background:#181818; border:1px solid var(--border2); border-radius:3px; z-index:50; width:100%; max-height:210px; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,.7); }
+    .task-dropdown.open { display:block; }
+    .dd-section { font-family:var(--mono); font-size:8px; letter-spacing:2px; color:var(--text3); text-transform:uppercase; padding:8px 12px 4px; border-bottom:1px solid var(--border); }
+    .dd-item { font-family:var(--serif); font-size:13px; color:var(--text2); padding:9px 12px; cursor:pointer; transition:background .12s,color .12s; border-bottom:1px solid var(--border); }
+    .dd-item:last-child { border-bottom:none; }
+    .dd-item:hover { background:#222; color:var(--text); }
+    .dd-item.hist { color:#b08a60; }
+    .dd-item.hist:hover { color:var(--amber); background:#1c1510; }
+    .dd-empty { font-family:var(--mono); font-size:10px; color:var(--text3); padding:12px; font-style:italic; }
+    .btn-remove { background:none; border:none; color:var(--text3); font-size:18px; cursor:pointer; padding:0 4px; line-height:1; }
+    .btn-add { background:none; border:none; color:var(--text3); font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; padding:8px 0; text-align:left; }
+    .btn-add:disabled { cursor:default; opacity:.4; }
+
+    /* Timer panel */
+    #timer-panel { width:300px; flex-shrink:0; background:#0c0c0c; padding:24px 20px; display:flex; flex-direction:column; gap:28px; position:sticky; top:57px; height:calc(100vh - 57px); overflow-y:auto; }
+    .timer-phase { font-family:var(--mono); font-size:9px; letter-spacing:3px; text-transform:uppercase; }
+    .timer-phase.mini { color:var(--amber); }
+    .timer-phase.task { color:var(--green); }
+    .timer-phase.brk  { color:var(--blue); }
+    .timer-phase.idle { color:var(--text3); }
+    .timer-display { font-family:var(--mono); font-size:58px; letter-spacing:-2px; line-height:1; text-align:center; color:var(--text3); transition:color .5s; }
+    .timer-display.active { color:var(--text); }
+    .progress-bar { height:2px; background:var(--border); border-radius:1px; overflow:hidden; }
+    .progress-fill { height:100%; width:0%; border-radius:1px; transition:width 1s linear,background .5s; }
+
+    .zone-list { display:flex; flex-direction:column; gap:6px; }
+    .zone-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:2px; border:1px solid transparent; transition:all .4s ease; }
+    .zone-item.current { border-color:var(--amber); background:var(--amber-dim); }
+    .zone-item.past { opacity:.35; }
+    .zone-icon { font-size:16px; }
+    .zone-name { flex:1; font-family:var(--serif); font-size:13px; color:var(--text2); }
+    .zone-item.current .zone-name { color:var(--text); }
+    .zone-dur { font-family:var(--mono); font-size:10px; color:var(--text3); }
+
+    .btn-skip { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:9px; width:100%; background:none; border:1px solid var(--border); color:var(--text3); cursor:pointer; border-radius:2px; transition:all .2s; }
+    .btn-skip:hover { border-color:var(--border2); color:var(--text2); }
+
+    .break-card { border:1px solid #1a2a3a; border-radius:2px; background:var(--blue-dim); padding:20px; text-align:center; }
+    .break-icon { font-size:28px; margin-bottom:8px; }
+    .break-label { font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--blue); text-transform:uppercase; }
+    .break-sub { font-family:var(--mono); font-size:10px; color:var(--text3); margin-top:8px; }
+
+    .structure-list { display:flex; flex-direction:column; gap:8px; }
+    .structure-row { display:flex; justify-content:space-between; align-items:center; }
+    .structure-left { display:flex; align-items:center; gap:8px; }
+    .structure-dot { width:5px; height:5px; border-radius:50%; }
+    .structure-name { font-family:var(--serif); font-size:12px; color:var(--text3); }
+    .structure-time { font-family:var(--mono); font-size:11px; color:var(--text3); }
+    .structure-divider { border:none; border-top:1px solid var(--border); margin:6px 0; }
+
+    .active-tasks { display:flex; flex-direction:column; gap:10px; }
+    .active-task { display:flex; gap:8px; align-items:flex-start; }
+    .active-task-dot { width:4px; height:4px; border-radius:50%; background:var(--green); margin-top:7px; flex-shrink:0; }
+    .active-task-text { font-family:var(--serif); font-size:13px; color:var(--text2); line-height:1.5; }
+
+    /* Viewer overlay message */
+    .viewer-notice { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:1px; text-align:center; padding:12px; border:1px solid var(--border); border-radius:2px; }
+
+    @media(max-width:640px) {
+      main { flex-direction:column; }
+      #timer-panel { width:100%; position:static; height:auto; border-top:1px solid var(--border); }
+      #blocks-panel { border-right:none; }
+      .timer-display { font-size:48px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo-group">
+      <div class="logo-eyebrow">Pomodoro Canvas</div>
+      <div class="logo-title">45 · 15</div>
+    </div>
+    <div class="header-right">
+      <div class="pill" id="done-pill">0 / 3 done</div>
+      <div id="mode-badge"></div>
+      <span class="sync-dot" id="sync-dot" title="Sync status"></span>
+      <button class="btn-ghost" id="reset-btn" onclick="doReset()" style="display:none">Reset</button>
+    </div>
+  </header>
+  <main>
+    <div id="blocks-panel">
+      <div class="panel-label">Session Plan</div>
+      <div id="blocks-container"></div>
+    </div>
+    <div id="timer-panel">
+      <div>
+        <div class="panel-label" style="margin-bottom:8px">Current Phase</div>
+        <div class="timer-phase idle" id="phase-label">Ready</div>
+      </div>
+      <div>
+        <div class="timer-display" id="timer-display">──:──</div>
+        <div class="progress-bar" style="margin-top:16px"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+      <div id="mini-loop-section" style="display:none">
+        <div class="panel-label" style="margin-bottom:10px">Mini Loop Zones</div>
+        <div class="zone-list" id="zone-list"></div>
+        <button class="btn-skip" id="skip-btn" style="margin-top:12px;display:none" onclick="doSkipMini()">Skip to Focus →</button>
+      </div>
+      <div id="break-section" style="display:none">
+        <div class="break-card">
+          <div class="break-icon">☕</div>
+          <div class="break-label">Break Time</div>
+          <div class="break-sub">Next block queued automatically</div>
+        </div>
+      </div>
+      <div id="idle-section">
+        <div class="panel-label" style="margin-bottom:12px">Structure</div>
+        <div class="structure-list">
+          <div class="structure-row"><div class="structure-left"><div class="structure-dot" style="background:var(--amber)"></div><span class="structure-name">Mini Loop</span></div><span class="structure-time">10 min</span></div>
+          <div class="structure-row"><div class="structure-left"><div class="structure-dot" style="background:var(--green)"></div><span class="structure-name">Focus Work</span></div><span class="structure-time">35 min</span></div>
+          <div class="structure-row"><div class="structure-left"><div class="structure-dot" style="background:var(--blue)"></div><span class="structure-name">Break</span></div><span class="structure-time">15 min</span></div>
+          <hr class="structure-divider">
+          <div class="structure-row"><span class="structure-name" style="color:var(--text3)">Total</span><span class="structure-time">60 min</span></div>
+        </div>
+      </div>
+      <div id="active-tasks-section" style="display:none">
+        <div class="panel-label" style="margin-bottom:10px" id="active-block-label">Block 1</div>
+        <div class="active-tasks" id="active-tasks-list"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIGURATION
+// ═══════════════════════════════════════════════════════
+const STATE_URL = '/api/state';
+const POLL_MS    = 1000;   // poll every second
+const SAVE_DELAY = 800;    // debounce block edits before sending
+
+// ═══════════════════════════════════════════════════════
+//  PRESETS & HISTORY
+// ═══════════════════════════════════════════════════════
+const PRESETS = [
+  'Vacuum living room','Vacuum bedroom','Mop kitchen floor',
+  'Wipe countertops','Clean bathroom sink','Scrub toilet',
+  'Clean shower / tub','Wipe bathroom mirror','Take out trash',
+  'Empty dishwasher','Load dishwasher','Wipe stovetop',
+  'Clean microwave','Wipe down fridge','Sweep entryway',
+  'Dust surfaces','Change bed sheets','Do laundry',
+  'Fold & put away clothes','Organize desk',
+  'Clear clutter — living room','Clear clutter — bedroom',
+  'Wipe light switches & handles','Clean windows / glass doors',
+  'Take recycling out','Vacuum sofa','Wipe TV & electronics',
+];
+
+function getHistory() { try { return JSON.parse(localStorage.getItem('pomo_history')||'[]'); } catch { return []; } }
+function pushHistory(v) {
+  if (!v.trim()) return;
+  let h = getHistory().filter(t=>t.toLowerCase()!==v.toLowerCase());
+  h.unshift(v.trim());
+  try { localStorage.setItem('pomo_history', JSON.stringify(h.slice(0,40))); } catch {}
+}
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+const ZONES = [
+  {name:'Computer',duration:3,icon:'💻'},
+  {name:'Bed Area', duration:2,icon:'🛏️'},
+  {name:'Bathroom', duration:2,icon:'🚿'},
+  {name:'Kitchen',  duration:3,icon:'🍳'},
+];
+const ZONE_BOUNDS = [0,180,300,420,600];
+
+let state       = null;   // latest from server
+let ownerToken  = null;   // set if we are owner
+let isOwner     = false;
+let pollTimer   = null;
+let openWrap    = null;
+let saveTimers  = {};     // debounce per block
+
+// ═══════════════════════════════════════════════════════
+//  BOOT — detect owner token
+// ═══════════════════════════════════════════════════════
+(async function boot() {
+  // Check if owner token stored locally
+  const stored = sessionStorage.getItem('pomo_owner_token');
+  if (stored) { ownerToken = stored; }
+
+  // First poll — server will confirm if token is valid
+  await poll();
+  startPolling();
+})();
+
+// ═══════════════════════════════════════════════════════
+//  OWNER SETUP (first visit — fetch token)
+// ═══════════════════════════════════════════════════════
+async function claimOwner() {
+  try {
+    const r = await fetch(`${STATE_URL}?action=setup`);
+    const d = await r.json();
+    if (d.ownerToken) {
+      ownerToken = d.ownerToken;
+      sessionStorage.setItem('pomo_owner_token', ownerToken);
+      isOwner = true;
+      renderUI();
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  POLLING
+// ═══════════════════════════════════════════════════════
+function startPolling() {
+  pollTimer = setInterval(poll, POLL_MS);
+}
+
+async function poll() {
+  try {
+    const headers = {};
+    if (ownerToken) headers['X-Owner-Token'] = ownerToken;
+    const r = await fetch(`${STATE_URL}?action=get&_=${Date.now()}`, { headers });
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+
+    // Sync owner token from server on first load
+    if (d.isOwner && d.ownerToken && !ownerToken) {
+      ownerToken = d.ownerToken;
+      sessionStorage.setItem('pomo_owner_token', ownerToken);
+    }
+
+    isOwner = !!d.isOwner;
+    state   = d;
+    setSyncDot('live');
+    renderUI();
+  } catch(e) {
+    setSyncDot('err');
+  }
+}
+
+function setSyncDot(status) {
+  const dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot' + (status==='live'?' live':status==='err'?' err':'');
+  dot.title = status==='live'?'Synced':status==='err'?'Connection error':'Connecting…';
+}
+
+// ═══════════════════════════════════════════════════════
+//  OWNER ACTIONS
+// ═══════════════════════════════════════════════════════
+async function ownerPost(action, body={}) {
+  if (!isOwner || !ownerToken) return;
+  try {
+    const r = await fetch(`${STATE_URL}?action=${action}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Owner-Token':ownerToken},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.error) { console.error(d.error); return; }
+    state = d; renderUI();
+  } catch(e) { console.error(e); }
+}
+
+function doStart(bi)      { ownerPost('start',       { blockIndex: bi }); }
+function doSkipMini()     { ownerPost('skip_mini'); }
+function doReset()        { ownerPost('reset'); }
+function doToggleMini(bi) { ownerPost('toggle_mini', { blockIndex: bi }); }
+
+function scheduleBlockSave(bi) {
+  clearTimeout(saveTimers[bi]);
+  saveTimers[bi] = setTimeout(() => {
+    ownerPost('update_block', {
+      blockIndex: bi,
+      label: state.blocks[bi].label,
+      tasks: state.blocks[bi].tasks,
+      miniLoop: state.miniLoop[bi],
+    });
+  }, SAVE_DELAY);
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════
+function renderUI() {
+  if (!state) return;
+  renderHeader();
+  renderBlocks();
+  renderTimerPanel();
+}
+
+function renderHeader() {
+  document.getElementById('done-pill').textContent =
+    `${(state.completedBlocks||[]).length} / ${state.blocks.length} done`;
+
+  const badge = document.getElementById('mode-badge');
+  badge.innerHTML = isOwner
+    ? ''
+    : '<div class="viewer-badge">👁 Viewing live</div>';
+
+  document.getElementById('reset-btn').style.display = isOwner ? 'block' : 'none';
+}
+
+function renderBlocks() {
+  const c = document.getElementById('blocks-container');
+  // Preserve focus — don't re-render if user is typing
+  if (document.activeElement && document.activeElement.classList.contains('task-input')) return;
+
+  c.innerHTML = '';
+  state.blocks.forEach((block, idx) => {
+    const isActive = state.activeBlock===idx && (state.phase==='mini'||state.phase==='task');
+    const isDone   = (state.completedBlocks||[]).includes(idx);
+    const isNext   = !isDone && idx===(state.completedBlocks||[]).length && state.phase==='idle';
+    const status   = isDone?'✓ Completed':isActive?'● Active':isNext?'Next up':`Block ${idx+1}`;
+
+    const startBtn = isOwner && !isDone && state.phase==='idle'
+      ? `<button class="btn-start ${isNext?'primary':''}" onclick="doStart(${idx})">Start →</button>` : '';
+
+    const card = document.createElement('div');
+    card.className = 'block-card'+(isActive?' active':isDone?' done':'');
+    card.innerHTML = `
+      <div class="block-header">
+        <div style="flex:1;min-width:0">
+          <div class="block-status">${status}</div>
+          ${isOwner
+            ? `<input class="block-title-input" value="${esc(block.label)}" placeholder="Block title…"
+                oninput="state.blocks[${idx}].label=this.value;scheduleBlockSave(${idx});" />`
+            : `<div class="block-title-static">${esc(block.label)}</div>`
+          }
+        </div>
+        ${startBtn}
+      </div>
+      <div class="task-list" id="tl-${idx}"></div>
+      ${isOwner && block.tasks.length<3
+        ? `<button class="btn-add" onclick="addTask(${idx})">+ add task</button>` : ''}
+    `;
+    c.appendChild(card);
+    renderTaskList(idx);
+  });
+
+  if (!isOwner) {
+    const notice = document.createElement('div');
+    notice.className = 'viewer-notice';
+    notice.textContent = 'You are viewing this session live — controls are owner-only';
+    c.appendChild(notice);
+  }
+}
+
+function renderTaskList(bi) {
+  const list = document.getElementById(`tl-${bi}`);
+  if (!list) return;
+  list.innerHTML = '';
+  const block = state.blocks[bi];
+  const on    = state.miniLoop[bi] !== false;
+
+  // Mini Loop row
+  const mr = document.createElement('div');
+  mr.className = 'mini-loop-row';
+  mr.innerHTML = `
+    <div class="mini-dot" style="${on?'':'background:var(--text3)'}"></div>
+    <span class="mini-label" style="${on?'':'color:var(--text3);text-decoration:line-through'}">
+      Mini Loop <span class="mini-dur">(10 min)</span>
+    </span>
+    ${isOwner
+      ? `<button class="mini-toggle ${on?'on':'off'}" onclick="doToggleMini(${bi})">${on?'Include':'Skipped'}</button>`
+      : `<span class="mini-toggle ${on?'on':'off'}" style="cursor:default">${on?'Include':'Skipped'}</span>`
+    }
+  `;
+  list.appendChild(mr);
+
+  // Task rows
+  const ph = ['Main task…','Secondary task…','Optional task…'];
+  block.tasks.forEach((task, ti) => {
+    const row = document.createElement('div');
+    row.className = 'task-row';
+    if (isOwner) {
+      row.innerHTML = `
+        <div class="task-dot"></div>
+        <div class="task-input-wrap" id="wrap-${bi}-${ti}">
+          <input class="task-input" id="inp-${bi}-${ti}"
+            value="${esc(task)}" placeholder="${ph[ti]||'Task…'}" autocomplete="off"
+            oninput="onTaskInput(${bi},${ti},this.value)"
+            onchange="onTaskSave(${bi},${ti},this.value)"
+            onfocus="openDD(${bi},${ti})" />
+          <span class="task-dd-arrow" onmousedown="event.preventDefault();toggleDD(${bi},${ti})">▾</span>
+          <div class="task-dropdown" id="dd-${bi}-${ti}"></div>
+        </div>
+        ${block.tasks.length>1?`<button class="btn-remove" onclick="removeTask(${bi},${ti})">×</button>`:''}
+      `;
+    } else {
+      row.innerHTML = `
+        <div class="task-dot"></div>
+        <span style="font-family:var(--serif);font-size:13px;color:${task?'var(--text2)':'var(--text3)'};font-style:${task?'normal':'italic'}">
+          ${task ? esc(task) : ph[ti]||'Task…'}
+        </span>
+      `;
+    }
+    list.appendChild(row);
+  });
+}
+
+function renderTimerPanel() {
+  if (!state) return;
+  const phase = state.phase;
+
+  const display = document.getElementById('timer-display');
+  display.textContent = phase==='idle' ? '──:──' : fmt(state.secondsLeft);
+  display.classList.toggle('active', phase!=='idle');
+
+  const label = document.getElementById('phase-label');
+  label.className = 'timer-phase';
+  const map = {mini:['Mini Loop','mini'],task:['Focus Work','task'],break:['Break','brk'],idle:['Ready','idle']};
+  const [txt,cls] = map[phase]||['Ready','idle'];
+  label.textContent=txt; label.classList.add(cls);
+
+  let pct=0;
+  if (phase==='mini')  pct=((600 -state.secondsLeft)/600)*100;
+  if (phase==='task')  pct=((2100-state.secondsLeft)/2100)*100;
+  if (phase==='break') pct=((900 -state.secondsLeft)/900)*100;
+  const fill = document.getElementById('progress-fill');
+  fill.style.width=pct+'%';
+  fill.style.background=phase==='mini'?'var(--amber)':phase==='task'?'var(--green)':'var(--blue)';
+
+  document.getElementById('mini-loop-section').style.display  = phase==='mini'  ?'block':'none';
+  document.getElementById('break-section').style.display      = phase==='break' ?'block':'none';
+  document.getElementById('idle-section').style.display       = phase==='idle'  ?'block':'none';
+  document.getElementById('active-tasks-section').style.display=(phase==='task'||phase==='mini')?'block':'none';
+
+  // Skip button — owner only
+  const skipBtn = document.getElementById('skip-btn');
+  if (skipBtn) skipBtn.style.display = (isOwner && phase==='mini') ? 'block' : 'none';
+
+  if (phase==='mini') {
+    const zi = getZone(state.elapsed);
+    const zl = document.getElementById('zone-list');
+    zl.innerHTML='';
+    ZONES.forEach((z,i)=>{
+      const d=document.createElement('div');
+      d.className='zone-item'+(i===zi?' current':i<zi?' past':'');
+      d.innerHTML=`<span class="zone-icon">${z.icon}</span><span class="zone-name">${z.name}</span><span class="zone-dur">${z.duration}m</span>`;
+      zl.appendChild(d);
+    });
+  }
+
+  if (phase==='task'||phase==='mini') {
+    const ab = state.activeBlock;
+    document.getElementById('active-block-label').textContent = state.blocks[ab]?.label||`Block ${ab+1}`;
+    const tl = document.getElementById('active-tasks-list');
+    tl.innerHTML='';
+    const filled=(state.blocks[ab]?.tasks||[]).filter(t=>t.trim());
+    if (!filled.length) {
+      tl.innerHTML=`<span style="font-family:var(--mono);font-size:11px;color:var(--text3);font-style:italic">No tasks added</span>`;
+    } else {
+      filled.forEach(t=>{
+        const d=document.createElement('div'); d.className='active-task';
+        d.innerHTML=`<div class="active-task-dot"></div><span class="active-task-text">${esc(t)}</span>`;
+        tl.appendChild(d);
+      });
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  TASK EDITING (owner only)
+// ═══════════════════════════════════════════════════════
+function onTaskInput(bi, ti, val) {
+  state.blocks[bi].tasks[ti] = val;
+  buildDD(bi, ti, val);
+  scheduleBlockSave(bi);
+}
+function onTaskSave(bi, ti, val) {
+  state.blocks[bi].tasks[ti] = val;
+  if (val.trim()) pushHistory(val.trim());
+  scheduleBlockSave(bi);
+}
+function addTask(bi) {
+  if (state.blocks[bi].tasks.length>=3) return;
+  state.blocks[bi].tasks.push('');
+  ownerPost('update_block',{blockIndex:bi,label:state.blocks[bi].label,tasks:state.blocks[bi].tasks,miniLoop:state.miniLoop[bi]});
+}
+function removeTask(bi, ti) {
+  state.blocks[bi].tasks.splice(ti,1);
+  ownerPost('update_block',{blockIndex:bi,label:state.blocks[bi].label,tasks:state.blocks[bi].tasks,miniLoop:state.miniLoop[bi]});
+}
+
+// ═══════════════════════════════════════════════════════
+//  DROPDOWN
+// ═══════════════════════════════════════════════════════
+document.addEventListener('click', e=>{
+  if (openWrap && !openWrap.contains(e.target)) closeAllDD();
+});
+function closeAllDD() {
+  document.querySelectorAll('.task-dropdown.open').forEach(d=>d.classList.remove('open'));
+  openWrap=null;
+}
+function buildDD(bi, ti, query) {
+  const dd=document.getElementById(`dd-${bi}-${ti}`); if(!dd)return;
+  const q=query.trim().toLowerCase();
+  const hist=getHistory().filter(t=>!q||t.toLowerCase().includes(q)).slice(0,5);
+  const presets=PRESETS.filter(t=>(!q||t.toLowerCase().includes(q))&&!hist.some(h=>h.toLowerCase()===t.toLowerCase())).slice(0,8);
+  dd.innerHTML='';
+  if(!hist.length&&!presets.length){dd.innerHTML=`<div class="dd-empty">No suggestions</div>`;return;}
+  if(hist.length){
+    dd.innerHTML+=`<div class="dd-section">Recent</div>`;
+    hist.forEach(t=>{const d=document.createElement('div');d.className='dd-item hist';d.textContent=t;d.onmousedown=e=>{e.preventDefault();pick(bi,ti,t);};dd.appendChild(d);});
+  }
+  if(presets.length){
+    dd.innerHTML+=`<div class="dd-section">Suggestions</div>`;
+    presets.forEach(t=>{const d=document.createElement('div');d.className='dd-item';d.textContent=t;d.onmousedown=e=>{e.preventDefault();pick(bi,ti,t);};dd.appendChild(d);});
+  }
+}
+function openDD(bi,ti){buildDD(bi,ti,state.blocks[bi].tasks[ti]||'');closeAllDD();const dd=document.getElementById(`dd-${bi}-${ti}`);const wrap=document.getElementById(`wrap-${bi}-${ti}`);if(dd&&wrap){dd.classList.add('open');openWrap=wrap;}}
+function toggleDD(bi,ti){const dd=document.getElementById(`dd-${bi}-${ti}`);if(!dd)return;if(dd.classList.contains('open')){closeAllDD();return;}openDD(bi,ti);}
+function pick(bi,ti,val){state.blocks[bi].tasks[ti]=val;pushHistory(val);closeAllDD();onTaskSave(bi,ti,val);renderTaskList(bi);}
+
+// ═══════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════
+function getZone(e){for(let i=0;i<ZONES.length;i++){if(e<ZONE_BOUNDS[i+1])return i;}return ZONES.length-1;}
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── PWA install ──
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;});
+</script>
+</body>
+</html>
