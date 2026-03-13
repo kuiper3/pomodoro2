@@ -91,8 +91,9 @@
     .dd-empty { font-family:var(--mono); font-size:10px; color:var(--text3); padding:12px; font-style:italic; }
 
     /* Time picker */
-    .time-select { background:#161616; border:1px solid var(--border); color:var(--text3); font-family:var(--mono); font-size:10px; padding:4px 6px; border-radius:2px; cursor:pointer; flex-shrink:0; width:68px; }
+    .time-select { background:#161616; border:1px solid var(--border); color:var(--amber); font-family:var(--mono); font-size:10px; padding:4px 6px; border-radius:2px; cursor:pointer; flex-shrink:0; width:68px; }
     .time-select:focus { outline:none; border-color:var(--border2); }
+    .time-select option { background:#161616; color:var(--amber); }
 
     .btn-remove { background:none; border:none; color:var(--text3); font-size:18px; cursor:pointer; padding:0 2px; line-height:1; }
     .btn-add { background:none; border:none; color:var(--text3); font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; padding:8px 0; text-align:left; }
@@ -327,11 +328,14 @@ function chimeBreak() { _tone(440,0.8,0.7); }
 // ═══════════════════════════════════════════════════════
 //  SPEECH — Web Speech API
 // ═══════════════════════════════════════════════════════
+function stripEmoji(text) {
+  return text.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').replace(/\s+/g,' ').trim();
+}
 function speak(text, rate=0.95, pitch=1.0) {
   try {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
+    const u = new SpeechSynthesisUtterance(stripEmoji(text));
     u.rate = rate; u.pitch = pitch; u.volume = 1.0;
     const voices = window.speechSynthesis.getVoices();
     const eng = voices.find(v => v.lang.startsWith('en')) || voices[0];
@@ -353,44 +357,47 @@ if (window.speechSynthesis) {
 //  Format: { emoji, name, minutes }
 // ═══════════════════════════════════════════════════════
 const EMOJI_CATS = [
-  { label:'🧹 Cleaning', emojis:['🧹','🧽','🪣','🧴','🧻','🪠','🪤','🧺','🫧','🪥','🧼','🪒'] },
-  { label:'🏠 Spaces',   emojis:['🛏️','🛋️','🪑','🚽','🚿','🪞','🚪','🪟','🏠','🔑','🧯','💡'] },
-  { label:'🍽️ Kitchen',  emojis:['🍽️','🥄','🔥','❄️','📦','🫙','🍳','🥘','🧊','🪣','🫕','🧂'] },
-  { label:'👕 Laundry',  emojis:['👕','👗','🧦','👔','🧥','🪡','🧶','👒','🎽','🧤','👙','🩱'] },
-  { label:'🗂️ Organize', emojis:['🗂️','📁','📋','🗃️','📊','📌','📎','🖇️','✂️','🗑️','📦','🧲'] },
-  { label:'♻️ Waste',    emojis:['♻️','🗑️','🪣','📦','🧹','🌿','💧','🌱','🌍','♻️','🫙','🪴'] },
-  { label:'⭐ General',  emojis:['⭐','✅','🎯','⏰','🔧','🔨','📋','🛒','💪','🏆','🔑','📝'] },
+  { label:'🧹 Clean',    emojis:['🧹','🧽','🪣','🧴','🧻','🪠','🧼','🪥','🫧','🪒','🧺','🪤','🗑️','♻️','🚿','🛁'] },
+  { label:'🏠 Rooms',    emojis:['🛏️','🛋️','🪑','🚽','🚿','🪞','🚪','🪟','🏠','🔑','💡','🖼️','🪴','📺','🖥️','📻'] },
+  { label:'🍽️ Kitchen',  emojis:['🍽️','🥄','🍳','🔥','❄️','📦','🫙','🧊','🥘','🧂','🫕','🍵','☕','🧋','🫖','🥢'] },
+  { label:'👕 Laundry',  emojis:['👕','👗','🧦','👔','🧥','🪡','🧶','👒','🎽','🧤','👙','🩱','👖','🩲','🧣','👚'] },
+  { label:'🗂️ Office',   emojis:['🗂️','📁','📋','🗃️','📊','📌','📎','🖇️','✂️','📝','💼','🖨️','⌨️','🖱️','📐','📏'] },
+  { label:'🌿 Nature',   emojis:['🌿','🪴','🌱','💧','🌍','☀️','🌸','🍃','🌾','🌻','🌳','🍂','🪨','🌊','🌬️','❄️'] },
+  { label:'🔧 Tools',    emojis:['🔧','🔨','🪛','🔩','🪚','⚙️','🧲','🔦','🕯️','🪜','🧯','🪝','🔐','🔒','🔓','🗝️'] },
+  { label:'⭐ Status',   emojis:['✅','⭐','🎯','⏰','🏆','💪','🚀','🎉','✨','🔥','💯','🆗','🆙','🆕','❗','⚡'] },
+  { label:'😊 Faces',    emojis:['😊','😄','😤','💪','🥱','😌','🤔','😅','🙂','😎','🥳','😴','🤩','🫡','🙌','👏'] },
+  { label:'📦 Objects',  emojis:['📦','🎒','👜','🧳','🪞','🛒','🎁','📫','📬','🗳️','🧸','🪆','🪅','🎨','🖌️','✏️'] },
 ];
 let _emojiActiveCat = 0;
 
 const DEFAULT_PRESETS = [
-  {emoji:'🧹', name:'Vacuum living room',       minutes:15},
-  {emoji:'🛏️', name:'Vacuum bedroom',           minutes:15},
-  {emoji:'🧺', name:'Mop kitchen floor',        minutes:15},
-  {emoji:'🧽', name:'Wipe countertops',         minutes:10},
-  {emoji:'🪥', name:'Clean bathroom sink',      minutes:10},
-  {emoji:'🚽', name:'Scrub toilet',             minutes:10},
-  {emoji:'🚿', name:'Clean shower / tub',       minutes:20},
-  {emoji:'🪞', name:'Wipe bathroom mirror',     minutes:5},
-  {emoji:'🗑️', name:'Take out trash',           minutes:5},
-  {emoji:'🍽️', name:'Empty dishwasher',         minutes:10},
-  {emoji:'🍽️', name:'Load dishwasher',          minutes:10},
-  {emoji:'🔥', name:'Wipe stovetop',            minutes:10},
-  {emoji:'📦', name:'Clean microwave',          minutes:10},
-  {emoji:'❄️', name:'Wipe down fridge',         minutes:10},
-  {emoji:'🚪', name:'Sweep entryway',           minutes:10},
-  {emoji:'🪣', name:'Dust surfaces',            minutes:15},
-  {emoji:'🛏️', name:'Change bed sheets',        minutes:15},
-  {emoji:'👕', name:'Do laundry',               minutes:10},
-  {emoji:'👗', name:'Fold & put away clothes',  minutes:20},
-  {emoji:'🗂️', name:'Organize desk',            minutes:15},
-  {emoji:'🛋️', name:'Clear clutter — living room', minutes:15},
-  {emoji:'🛏️', name:'Clear clutter — bedroom',  minutes:15},
+  {emoji:'🧹', name:'Vacuum living room',          minutes:5},
+  {emoji:'🛏️', name:'Vacuum bedroom',              minutes:5},
+  {emoji:'🧺', name:'Mop kitchen floor',           minutes:5},
+  {emoji:'🧽', name:'Wipe countertops',            minutes:5},
+  {emoji:'🪥', name:'Clean bathroom sink',         minutes:5},
+  {emoji:'🚽', name:'Scrub toilet',                minutes:5},
+  {emoji:'🚿', name:'Clean shower / tub',          minutes:5},
+  {emoji:'🪞', name:'Wipe bathroom mirror',        minutes:5},
+  {emoji:'🗑️', name:'Take out trash',              minutes:5},
+  {emoji:'🍽️', name:'Empty dishwasher',            minutes:5},
+  {emoji:'🍽️', name:'Load dishwasher',             minutes:5},
+  {emoji:'🔥', name:'Wipe stovetop',               minutes:5},
+  {emoji:'📦', name:'Clean microwave',             minutes:5},
+  {emoji:'❄️', name:'Wipe down fridge',            minutes:5},
+  {emoji:'🚪', name:'Sweep entryway',              minutes:5},
+  {emoji:'🪣', name:'Dust surfaces',               minutes:5},
+  {emoji:'🛏️', name:'Change bed sheets',           minutes:5},
+  {emoji:'👕', name:'Do laundry',                  minutes:5},
+  {emoji:'👗', name:'Fold & put away clothes',     minutes:5},
+  {emoji:'🗂️', name:'Organize desk',               minutes:5},
+  {emoji:'🛋️', name:'Clear clutter — living room', minutes:5},
+  {emoji:'🛏️', name:'Clear clutter — bedroom',     minutes:5},
   {emoji:'💡', name:'Wipe light switches & handles', minutes:5},
-  {emoji:'🪟', name:'Clean windows / glass doors',  minutes:15},
-  {emoji:'♻️', name:'Take recycling out',       minutes:5},
-  {emoji:'🛋️', name:'Vacuum sofa',              minutes:10},
-  {emoji:'📺', name:'Wipe TV & electronics',    minutes:10},
+  {emoji:'🪟', name:'Clean windows / glass doors', minutes:5},
+  {emoji:'♻️', name:'Take recycling out',          minutes:5},
+  {emoji:'🛋️', name:'Vacuum sofa',                 minutes:5},
+  {emoji:'📺', name:'Wipe TV & electronics',       minutes:5},
 ];
 const TIME_OPTS = [0,5,10,15,20,25,30,35,40];
 
@@ -664,17 +671,19 @@ function renderBlocks() {
     const isRunning = state.running;
     const statusLabel = isDone ? '✓ Completed' : isActive ? '● Active' : `Block ${idx+1}`;
 
-    // Live task time total — colored indicator (no warning text)
+    // Only the NEXT sequential block gets Start (all previous must be done)
+    const prevAllDone = state.blocks.slice(0, idx).every((_, i) => completed.includes(i));
+    const canStart = isOwner && !isDone && !isRunning && state.phase==='idle' && prevAllDone;
+    const startBtn = canStart ? `<button class="btn-start primary" data-start="${idx}">Start →</button>` : '';
+
+    // Live task time total chip
     const totalMins = (block.tasks||[]).reduce((s,t) => s + (Number(t.minutes)||0), 0);
     const TARGET = 35;
     let timeChip = '';
     if (isOwner && !isDone && totalMins > 0) {
       const color = totalMins < TARGET ? '#c05050' : totalMins === TARGET ? 'var(--green)' : '#9b6fc0';
-      timeChip = `<span style="font-family:var(--mono);font-size:10px;color:${color};border:1px solid ${color};border-radius:2px;padding:2px 7px;margin-left:8px">${totalMins}m / ${TARGET}m</span>`;
+      timeChip = `<span class="time-chip" data-bi="${idx}" style="font-family:var(--mono);font-size:10px;color:${color};border:1px solid ${color};border-radius:2px;padding:2px 7px;margin-left:8px">${totalMins}m / ${TARGET}m</span>`;
     }
-
-    const startBtn = isOwner && !isDone && !isRunning && state.phase==='idle'
-      ? `<button class="btn-start primary" data-start="${idx}">Start →</button>` : '';
 
     const card = document.createElement('div');
     card.className = 'block-card'+(isActive?' active':isDone?' done':'');
@@ -1009,7 +1018,18 @@ function onTaskSave(bi, ti, val) {
 function onTimeChange(bi, ti, mins) {
   const t = getTask(bi, ti);
   setTask(bi, ti, t.text, Number(mins));
-  // Save immediately (no debounce) so the value isn't lost on next render
+  // Update time chip immediately without waiting for server
+  const totalMins = (state.blocks[bi].tasks||[]).reduce((s,t) => s + (Number(t.minutes)||0), 0);
+  const TARGET = 35;
+  const chip = document.querySelector(`.time-chip[data-bi="${bi}"]`);
+  if (chip && totalMins > 0) {
+    const color = totalMins < TARGET ? '#c05050' : totalMins === TARGET ? 'var(--green)' : '#9b6fc0';
+    chip.style.color = color; chip.style.borderColor = color;
+    chip.textContent = `${totalMins}m / ${TARGET}m`;
+  } else if (!chip && totalMins > 0) {
+    // Chip not yet visible — let next renderBlocks handle it
+  }
+  // Save immediately (no debounce)
   ownerPost('update_block', {
     blockIndex: bi,
     label: state.blocks[bi].label,
