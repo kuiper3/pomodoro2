@@ -132,7 +132,13 @@ module.exports = function(req, res) {
   const owner  = checkOwner(req);
 
   if (req.method === 'GET') {
-    if (action === 'setup') return res.status(200).json({ ownerToken: getToken() });
+    if (action === 'setup') {
+      // Require password to get owner token
+      const pw = (req.headers['x-owner-password']||'').trim();
+      const realPw = process.env.APP_PASSWORD || 'pomodoro2026';
+      if (!pw || pw !== realPw) return res.status(403).json({ error:'Wrong password' });
+      return res.status(200).json({ ownerToken: getToken() });
+    }
     let s = advanceState(readState());
     writeState(s);
     // Include task slots for current block so client can display them
