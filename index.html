@@ -165,6 +165,37 @@
 
     .viewer-notice { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:1px; text-align:center; padding:12px; border:1px solid var(--border); border-radius:2px; }
 
+    /* Preset modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:500; align-items:center; justify-content:center; padding:20px; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:#141414; border:1px solid var(--border2); border-radius:4px; width:100%; max-width:520px; max-height:85vh; display:flex; flex-direction:column; }
+    .modal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
+    .modal-title { font-family:var(--mono); font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); }
+    .modal-close { background:none; border:none; color:var(--text3); font-size:20px; cursor:pointer; line-height:1; padding:0 4px; }
+    .modal-body { flex:1; overflow-y:auto; padding:12px 20px; }
+    .modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; gap:8px; }
+    .preset-row { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
+    .preset-name-inp { flex:1; background:none; border:none; color:var(--text); font-family:var(--serif); font-size:13px; outline:none; }
+    .preset-name-inp:focus { color:var(--text); }
+    .preset-time-sel { background:#161616; border:1px solid var(--border); color:var(--text3); font-family:var(--mono); font-size:10px; padding:3px 5px; border-radius:2px; cursor:pointer; width:60px; }
+    .preset-del { background:none; border:none; color:var(--text3); font-size:16px; cursor:pointer; padding:0 2px; flex-shrink:0; }
+    .preset-del:hover { color:var(--red); }
+    .btn-primary { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:7px 16px; border-radius:2px; cursor:pointer; border:none; background:var(--amber); color:#fff; }
+    .btn-secondary { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:7px 16px; border-radius:2px; cursor:pointer; border:1px solid var(--border2); background:none; color:var(--text3); }
+    .btn-presets { font-family:var(--mono); font-size:9px; letter-spacing:1.5px; color:var(--text3); background:none; border:1px solid var(--border); padding:5px 12px; border-radius:2px; cursor:pointer; text-transform:uppercase; transition:color .2s,border-color .2s; }
+    .btn-presets:hover { color:var(--text2); border-color:var(--border2); }
+
+    /* Log status buttons */
+    .log-status-btns { display:flex; gap:5px; margin-left:auto; flex-shrink:0; }
+    .log-status-btn { background:none; border:1px solid var(--border); border-radius:2px; width:24px; height:24px; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; transition:all .15s; padding:0; }
+    .log-status-btn:hover { border-color:var(--border2); }
+    .log-status-btn.active-done  { border-color:var(--green); background:#0d1a0d; }
+    .log-status-btn.active-skip  { border-color:#8b7a1a; background:#1a1800; }
+    .log-status-btn.active-miss  { border-color:var(--red); background:var(--red-dim); }
+    .log-task-dot.done { background:var(--green); }
+    .log-task-dot.skip { background:#8b7a1a; }
+    .log-task-dot.miss { background:var(--red); }
+
     @media(max-width:640px) {
       main { flex-direction:column; }
       #timer-panel { width:100%; position:static; height:auto; border-top:1px solid var(--border); }
@@ -184,9 +215,26 @@
       <div class="pill" id="done-pill">0 / 3 done</div>
       <div id="mode-badge"></div>
       <span class="sync-dot" id="sync-dot" title="Sync status"></span>
+      <button class="btn-presets" onclick="openPresetsModal()">Preset List</button>
       <button class="btn-ghost" id="reset-btn" onclick="doReset()" style="display:none">Reset</button>
     </div>
   </header>
+
+  <!-- Preset List Modal -->
+  <div class="modal-overlay" id="presets-modal" onmousedown="if(event.target===this)closePresetsModal()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">Preset Tasks</span>
+        <button class="modal-close" onclick="closePresetsModal()">×</button>
+      </div>
+      <div class="modal-body" id="presets-modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="addPresetRow()">+ Add Preset</button>
+        <button class="btn-primary" onclick="savePresetsModal()" style="margin-left:auto">Save</button>
+        <button class="btn-secondary" onclick="closePresetsModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
   <main>
     <div id="blocks-panel">
       <div class="panel-label">Session Plan</div>
@@ -285,27 +333,54 @@ if (window.speechSynthesis) {
 // ═══════════════════════════════════════════════════════
 //  PRESETS & HISTORY
 // ═══════════════════════════════════════════════════════
-const PRESETS = [
-  'Vacuum living room','Vacuum bedroom','Mop kitchen floor',
-  'Wipe countertops','Clean bathroom sink','Scrub toilet',
-  'Clean shower / tub','Wipe bathroom mirror','Take out trash',
-  'Empty dishwasher','Load dishwasher','Wipe stovetop',
-  'Clean microwave','Wipe down fridge','Sweep entryway',
-  'Dust surfaces','Change bed sheets','Do laundry',
-  'Fold & put away clothes','Organize desk',
-  'Clear clutter — living room','Clear clutter — bedroom',
-  'Wipe light switches & handles','Clean windows / glass doors',
-  'Take recycling out','Vacuum sofa','Wipe TV & electronics',
+// ═══════════════════════════════════════════════════════
+//  PRESETS — stored in localStorage with optional default times
+// ═══════════════════════════════════════════════════════
+const DEFAULT_PRESETS = [
+  {name:'Vacuum living room',   minutes:15},
+  {name:'Vacuum bedroom',       minutes:15},
+  {name:'Mop kitchen floor',    minutes:15},
+  {name:'Wipe countertops',     minutes:10},
+  {name:'Clean bathroom sink',  minutes:10},
+  {name:'Scrub toilet',         minutes:10},
+  {name:'Clean shower / tub',   minutes:20},
+  {name:'Wipe bathroom mirror', minutes:5},
+  {name:'Take out trash',       minutes:5},
+  {name:'Empty dishwasher',     minutes:10},
+  {name:'Load dishwasher',      minutes:10},
+  {name:'Wipe stovetop',        minutes:10},
+  {name:'Clean microwave',      minutes:10},
+  {name:'Wipe down fridge',     minutes:10},
+  {name:'Sweep entryway',       minutes:10},
+  {name:'Dust surfaces',        minutes:15},
+  {name:'Change bed sheets',    minutes:15},
+  {name:'Do laundry',           minutes:10},
+  {name:'Fold & put away clothes', minutes:20},
+  {name:'Organize desk',        minutes:15},
+  {name:'Clear clutter — living room', minutes:15},
+  {name:'Clear clutter — bedroom',     minutes:15},
+  {name:'Wipe light switches & handles', minutes:5},
+  {name:'Clean windows / glass doors',   minutes:15},
+  {name:'Take recycling out',   minutes:5},
+  {name:'Vacuum sofa',          minutes:10},
+  {name:'Wipe TV & electronics',minutes:10},
 ];
 const TIME_OPTS = [0,5,10,15,20,25,30,35,40];
 
-function getHistory() { try { return JSON.parse(localStorage.getItem('pomo_history')||'[]'); } catch { return []; } }
-function pushHistory(v) {
-  if (!v.trim()) return;
-  let h = getHistory().filter(t => t.toLowerCase() !== v.toLowerCase());
-  h.unshift(v.trim());
-  try { localStorage.setItem('pomo_history', JSON.stringify(h.slice(0,40))); } catch {}
+function getPresets() {
+  try { const s = localStorage.getItem('pomo_presets'); return s ? JSON.parse(s) : DEFAULT_PRESETS; }
+  catch { return DEFAULT_PRESETS; }
 }
+function savePresets(list) {
+  try { localStorage.setItem('pomo_presets', JSON.stringify(list)); } catch {}
+}
+function getPresetByName(name) {
+  return getPresets().find(p => p.name.toLowerCase() === name.toLowerCase()) || null;
+}
+
+// history kept for backward compat but not shown in dropdown
+function getHistory() { try { return JSON.parse(localStorage.getItem('pomo_history')||'[]'); } catch { return []; } }
+function pushHistory(v) {}
 
 // ═══════════════════════════════════════════════════════
 //  STATE
@@ -506,32 +581,41 @@ function renderHeader() {
 
 function renderBlocks() {
   const c = document.getElementById('blocks-container');
-  // Don't re-render while user is interacting with any input or select
   const active = document.activeElement;
   if (active && (
     active.classList.contains('task-input') ||
     active.classList.contains('block-title-input') ||
     active.classList.contains('time-select')
   )) return;
-  // Also skip if a task dropdown is open
   if (document.querySelector('.task-dropdown.open')) return;
   c.innerHTML = '';
-  state.blocks.forEach((block, idx) => {
-    const isActive = state.activeBlock===idx && (state.phase==='mini'||state.phase==='task');
-    const isDone   = (state.completedBlocks||[]).includes(idx);
+
+  const completed = state.completedBlocks || [];
+  // Sort: active/pending first (in order), then done ones
+  const order = [...state.blocks.keys()].sort((a, b) => {
+    const aDone = completed.includes(a), bDone = completed.includes(b);
+    if (aDone === bDone) return a - b;
+    return aDone ? 1 : -1;
+  });
+
+  order.forEach((idx, rank) => {
+    const block = state.blocks[idx];
+    const isActive  = state.activeBlock===idx && (state.phase==='mini'||state.phase==='task');
+    const isDone    = completed.includes(idx);
     const isRunning = state.running;
-    const isNext   = !isDone && idx===(state.completedBlocks||[]).length && state.phase==='idle';
-    const status   = isDone?'✓ Completed':isActive?'● Active':isNext?'Next up':`Block ${idx+1}`;
-    // Show Start for any non-done block when not currently running
+    // "Main Work" = the first non-done block rank-wise
+    const firstPending = order.find(i => !completed.includes(i));
+    const isMain = !isDone && idx === firstPending;
+    const label  = isDone ? '✓ Completed' : isActive ? '● Active' : isMain ? 'Main Work' : 'Preview';
     const startBtn = isOwner && !isDone && !isRunning && state.phase==='idle'
-      ? `<button class="btn-start ${isNext?'primary':''}" onclick="doStart(${idx})">Start →</button>` : '';
+      ? `<button class="btn-start ${isMain?'primary':''}" onclick="doStart(${idx})">Start →</button>` : '';
 
     const card = document.createElement('div');
     card.className = 'block-card'+(isActive?' active':isDone?' done':'');
     card.innerHTML = `
       <div class="block-header">
         <div style="flex:1;min-width:0">
-          <div class="block-status">${status}</div>
+          <div class="block-status">${label}</div>
           ${isOwner
             ? `<input class="block-title-input" value="${esc(block.label)}" placeholder="Block title…"
                 oninput="state.blocks[${idx}].label=this.value;scheduleBlockSave(${idx});" />`
@@ -546,6 +630,7 @@ function renderBlocks() {
     c.appendChild(card);
     renderTaskList(idx);
   });
+
   if (!isOwner) {
     const n = document.createElement('div');
     n.className = 'viewer-notice';
@@ -760,17 +845,27 @@ function renderTimerPanel() {
   }
 }
 
+// Log status stored locally: { [entryKey]: 'done'|'skip'|'miss' }
+function getLogStatuses() { try { return JSON.parse(localStorage.getItem('pomo_log_status')||'{}'); } catch { return {}; } }
+function setLogStatus(key, val) {
+  const s = getLogStatuses(); s[key] = val;
+  try { localStorage.setItem('pomo_log_status', JSON.stringify(s)); } catch {}
+  renderLog();
+}
+function logKey(entry) { return entry.completedAt + '_' + (entry.blockLabel||''); }
+
 function renderLog() {
   const el = document.getElementById('log-entries');
   const clearBtn = document.getElementById('clear-log-btn');
   const log = state.log || [];
   clearBtn.style.display = (isOwner && log.length) ? 'block' : 'none';
-  if (!log.length) {
-    el.innerHTML = '<div class="log-empty">No completed blocks yet.</div>';
-    return;
-  }
+  if (!log.length) { el.innerHTML = '<div class="log-empty">No completed blocks yet.</div>'; return; }
+  const statuses = getLogStatuses();
   el.innerHTML = '';
   [...log].reverse().forEach(entry => {
+    const key    = logKey(entry);
+    const status = statuses[key] || 'done'; // default green
+    const dotCls = status; // 'done' | 'skip' | 'miss'
     const div = document.createElement('div');
     div.className = 'log-entry';
     const dt = new Date(entry.completedAt * 1000);
@@ -780,13 +875,18 @@ function renderLog() {
       ? (entry.tasks||[]).map(t => {
           const text = typeof t==='string'?t:t.text;
           const mins = typeof t==='object'?t.minutes:0;
-          return `<div class="log-task"><div class="log-task-dot"></div><span class="log-task-text">${esc(text)}${mins?` <span style="color:var(--text3)">(${mins}m)</span>`:''}</span></div>`;
+          return `<div class="log-task"><div class="log-task-dot ${dotCls}"></div><span class="log-task-text">${esc(text)}${mins?` <span style="color:var(--text3)">(${mins}m)</span>`:''}</span></div>`;
         }).join('')
       : '<span class="log-task-text" style="font-style:italic;color:var(--text3)">No tasks recorded</span>';
     div.innerHTML = `
       <div class="log-entry-header">
         <span class="log-entry-label">${esc(entry.blockLabel||'Block')}</span>
         <span class="log-entry-time">${dateStr} · ${timeStr}</span>
+        ${isOwner ? `<div class="log-status-btns">
+          <button class="log-status-btn ${status==='done'?'active-done':''}" title="Completed" onclick="setLogStatus('${key}','done')">✓</button>
+          <button class="log-status-btn ${status==='skip'?'active-skip':''}" title="Partial" onclick="setLogStatus('${key}','skip')">♻</button>
+          <button class="log-status-btn ${status==='miss'?'active-miss':''}" title="Missed" onclick="setLogStatus('${key}','miss')">✕</button>
+        </div>` : ''}
       </div>
       <div class="log-entry-tasks">${taskHTML}</div>
     `;
@@ -878,37 +978,18 @@ function closeAllDD() {
 function buildDD(bi, ti, query) {
   const dd = document.getElementById(`dd-${bi}-${ti}`); if(!dd) return;
   const q = query.trim().toLowerCase();
-  const currentVal = (getTask(bi, ti).text || '').trim().toLowerCase();
-  const hist = getHistory().slice(0, 8);
-  // Show all presets; only skip ones already in history (exact match)
-  const presets = PRESETS.filter(t => {
-    if (q && !t.toLowerCase().includes(q)) return false;
-    return !hist.some(h => h.toLowerCase() === t.toLowerCase());
-  }).slice(0, 12);
+  const presets = getPresets().filter(p => !q || p.name.toLowerCase().includes(q));
   dd.innerHTML = '';
-  if (!hist.length && !presets.length) { dd.innerHTML=`<div class="dd-empty">No suggestions</div>`; return; }
-  if (hist.length) {
-    dd.innerHTML += `<div class="dd-section">Recent</div>`;
-    hist.forEach(t => {
-      const d = document.createElement('div');
-      const isCurrent = t.toLowerCase() === currentVal;
-      d.className = 'dd-item hist';
-      if (isCurrent) d.style.cssText = 'color:var(--amber);background:#1c1510';
-      d.textContent = t;
-      d.onmousedown = e => { e.preventDefault(); e.stopPropagation(); pick(bi,ti,t); };
-      dd.appendChild(d);
-    });
-  }
-  if (presets.length) {
-    dd.innerHTML += `<div class="dd-section">Suggestions</div>`;
-    presets.forEach(t => {
-      const d = document.createElement('div');
-      d.className = 'dd-item';
-      d.textContent = t;
-      d.onmousedown = e => { e.preventDefault(); e.stopPropagation(); pick(bi,ti,t); };
-      dd.appendChild(d);
-    });
-  }
+  if (!presets.length) { dd.innerHTML=`<div class="dd-empty">No matches</div>`; return; }
+  presets.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'dd-item';
+    const timeLabel = p.minutes ? `<span style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto;padding-left:8px">${p.minutes}m</span>` : '';
+    d.style.cssText = 'display:flex;align-items:center';
+    d.innerHTML = `<span style="flex:1">${esc(p.name)}</span>${timeLabel}`;
+    d.onmousedown = e => { e.preventDefault(); e.stopPropagation(); pick(bi,ti,p.name,p.minutes); };
+    dd.appendChild(d);
+  });
 }
 
 function openDD(bi,ti) {
@@ -918,11 +999,10 @@ function openDD(bi,ti) {
   document.querySelectorAll('.task-dropdown.open').forEach(d=>d.classList.remove('open'));
   openWrap = wrap;
   buildDD(bi, ti, getTask(bi,ti).text || '');
-  // Position fixed relative to wrap
   const rect = wrap.getBoundingClientRect();
-  dd.style.top  = (rect.bottom + 3) + 'px';
-  dd.style.left = rect.left + 'px';
-  dd.style.width = rect.width + 'px';
+  dd.style.top   = (rect.bottom + 3) + 'px';
+  dd.style.left  = rect.left + 'px';
+  dd.style.width = Math.max(rect.width, 260) + 'px';
   dd.classList.add('open');
   _ddJustOpened = true;
 }
@@ -934,14 +1014,70 @@ function toggleDD(bi,ti) {
   openDD(bi, ti);
 }
 
-function pick(bi,ti,val) {
-  const t = getTask(bi,ti);
-  setTask(bi,ti,val,t.minutes);
-  pushHistory(val);
+function pick(bi, ti, val, presetMins) {
+  const t = getTask(bi, ti);
+  // Use preset time if provided and field has no custom time set, or always apply preset time
+  const mins = (presetMins !== undefined) ? presetMins : t.minutes;
+  setTask(bi, ti, val, mins);
   closeAllDD();
   const inp = document.getElementById(`inp-${bi}-${ti}`);
   if (inp) inp.value = val;
-  onTaskSave(bi,ti,val);
+  // Update the time select to reflect preset time
+  const sel = document.querySelector(`#tl-${bi} .task-row:nth-child(${ti+2}) .time-select`);
+  if (sel && presetMins !== undefined) sel.value = String(presetMins);
+  // Save immediately
+  ownerPost('update_block', {
+    blockIndex: bi,
+    label: state.blocks[bi].label,
+    tasks: state.blocks[bi].tasks,
+    miniLoop: state.miniLoop[bi],
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  PRESET MODAL
+// ═══════════════════════════════════════════════════════
+let _editPresets = [];
+
+function openPresetsModal() {
+  _editPresets = getPresets().map(p => ({...p}));
+  renderPresetRows();
+  document.getElementById('presets-modal').classList.add('open');
+}
+function closePresetsModal() {
+  document.getElementById('presets-modal').classList.remove('open');
+}
+function renderPresetRows() {
+  const body = document.getElementById('presets-modal-body');
+  body.innerHTML = '';
+  _editPresets.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'preset-row';
+    const timeOpts = TIME_OPTS.map(m =>
+      `<option value="${m}" ${p.minutes===m?'selected':''}>${m===0?'—':m+'m'}</option>`
+    ).join('');
+    row.innerHTML = `
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3);width:18px;flex-shrink:0">${i+1}</span>
+      <input class="preset-name-inp" value="${esc(p.name)}" placeholder="Task name…"
+        oninput="_editPresets[${i}].name=this.value" />
+      <select class="preset-time-sel" onchange="_editPresets[${i}].minutes=Number(this.value)">${timeOpts}</select>
+      <button class="preset-del" onclick="_editPresets.splice(${i},1);renderPresetRows()">×</button>
+    `;
+    body.appendChild(row);
+  });
+}
+function addPresetRow() {
+  _editPresets.push({name:'', minutes:0});
+  renderPresetRows();
+  // Focus the new input
+  const inputs = document.querySelectorAll('.preset-name-inp');
+  if (inputs.length) inputs[inputs.length-1].focus();
+}
+function savePresetsModal() {
+  // Filter out blanks
+  const cleaned = _editPresets.filter(p => p.name.trim());
+  savePresets(cleaned);
+  closePresetsModal();
 }
 
 // ═══════════════════════════════════════════════════════
