@@ -2,9 +2,9 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 const STATE_FILE  = '/tmp/pomo_state.json';
-const MINI_DUR    = 600;   // 10 min (3+2+3+2 zones) — PRODUCTION
-const BREAK_DUR   = 900;   // 15 min
-const DEF_TASK_DUR = 2100; // 35 min if no task times set
+const MINI_DUR    = 600;
+const BREAK_DUR   = 900;
+const DEF_TASK_DUR = 2100;
 
 function now() { return Math.floor(Date.now() / 1000); }
 
@@ -20,12 +20,9 @@ function normBlock(b) {
   };
 }
 
-// Returns array of {text, seconds} for each task that has a time set,
-// or a single entry with DEF_TASK_DUR if none have times.
 function getTaskSlots(block) {
   const timed = (block.tasks||[]).filter(t => t.text.trim() && Number(t.minutes) > 0);
   if (timed.length > 0) return timed.map(t => ({ text: t.text, seconds: t.minutes * 60 }));
-  // Fall back: all named tasks share DEF_TASK_DUR as one slot
   const named = (block.tasks||[]).filter(t => t.text.trim());
   if (named.length > 0) return [{ text: named.map(t=>t.text).join(' + '), seconds: DEF_TASK_DUR }];
   return [{ text: '', seconds: DEF_TASK_DUR }];
@@ -53,17 +50,25 @@ function defaultState() {
 function readState() {
   try {
     if (fs.existsSync(STATE_FILE)) {
-      const s = JSON.parse(fs.readFileSync(STATE_FILE,'utf8'));
-      if (s && s.phase) {
-        if (Array.isArray(s.blocks)) s.blocks = s.blocks.map(normBlock);
-        if (s.activeTaskSlot == null) s.activeTaskSlot = 0;
-        return s;
+      const raw = fs.readFileSync(STATE_FILE,'utf8');
+      if (raw && raw.trim()) {
+        const s = JSON.parse(raw);
+        if (s && s.phase) {
+          if (Array.isArray(s.blocks)) s.blocks = s.blocks.map(normBlock);
+          if (s.activeTaskSlot == null) s.activeTaskSlot = 0;
+          if (!Array.isArray(s.log)) s.log = [];
+          if (!Array.isArray(s.completedBlocks)) s.completedBlocks = [];
+          if (!Array.isArray(s.miniLoop)) s.miniLoop = s.blocks.map(() => true);
+          while (s.miniLoop.length < s.blocks.length) s.miniLoop.push(true);
+          return s;
+        }
       }
     }
   } catch(e) {}
   return defaultState();
 }
 
+// Only called from POST — never from GET
 function writeState(s) {
   s.serverTime = now();
   try { fs.writeFileSync(STATE_FILE, JSON.stringify(s)); } catch(e) {}
@@ -82,11 +87,13 @@ function advanceState(s) {
   if (!s.running || s.paused) return s;
   const n = now();
   let elapsed = Math.max(0, n - (s.serverTime||n));
+  elapsed = Math.min(elapsed, 86400); // clamp runaway
   s.serverTime = n;
   while (elapsed > 0 && s.running && !s.paused) {
-    const step = Math.min(elapsed, s.secondsLeft);
+    const avail = s.secondsLeft > 0 ? s.secondsLeft : 1;
+    const step = Math.min(elapsed, avail);
     s.secondsLeft -= step; s.elapsed += step; elapsed -= step;
-    if (s.secondsLeft <= 0) s = nextPhase(s);
+    if (s.secondsLeft <= 0) { s.secondsLeft = 0; s = nextPhase(s); }
   }
   return s;
 }
@@ -96,18 +103,15 @@ function nextPhase(s) {
   const slots  = getTaskSlots(block);
 
   if (s.phase === 'mini') {
-    // Start first task slot
     s.phase = 'task'; s.activeTaskSlot = 0;
     s.secondsLeft = slots[0].seconds; s.elapsed = 0;
 
   } else if (s.phase === 'task') {
     const nextSlot = (s.activeTaskSlot||0) + 1;
     if (nextSlot < slots.length) {
-      // Advance to next task slot
       s.activeTaskSlot = nextSlot;
       s.secondsLeft = slots[nextSlot].seconds; s.elapsed = 0;
     } else {
-      // All task slots done → break
       s.log = (s.log||[]).concat({
         blockLabel: block.label,
         tasks: block.tasks.filter(t => t.text && t.text.trim()),
@@ -125,31 +129,36 @@ function nextPhase(s) {
   return s;
 }
 
+function buildResponse(s, owner) {
+  const block = s.blocks[s.activeBlock] || { tasks:[] };
+  return {
+    ...s,
+    isOwner: owner,
+    taskSlots: getTaskSlots(block),
+    ...(owner ? { ownerToken: getToken() } : {}),
+  };
+}
+
 module.exports = function(req, res) {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
   const action = (req.query||{}).action || 'get';
   const owner  = checkOwner(req);
 
+  // GET — read-only, NEVER writes state
   if (req.method === 'GET') {
     if (action === 'setup') {
-      // Require password to get owner token
       const pw = (req.headers['x-owner-password']||'').trim();
       const realPw = process.env.APP_PASSWORD || 'pomodoro2026';
       if (!pw || pw !== realPw) return res.status(403).json({ error:'Wrong password' });
       return res.status(200).json({ ownerToken: getToken() });
     }
-    let s = advanceState(readState());
-    writeState(s);
-    // Include task slots for current block so client can display them
-    const block = s.blocks[s.activeBlock] || { tasks:[] };
-    return res.status(200).json({
-      ...s, isOwner: owner,
-      taskSlots: getTaskSlots(block),
-      ...(owner ? { ownerToken: getToken() } : {}),
-    });
+    const s = advanceState(readState());
+    // DO NOT writeState here — viewers must not corrupt state
+    return res.status(200).json(buildResponse(s, owner));
   }
 
+  // POST — owner only, read then write atomically
   if (req.method === 'POST') {
     if (!owner) return res.status(403).json({ error:'Forbidden' });
     const body = req.body || {};
@@ -178,7 +187,6 @@ module.exports = function(req, res) {
       case 'stop':
         s.phase='idle'; s.running=false; s.paused=false;
         s.secondsLeft=0; s.elapsed=0; s.activeTaskSlot=0;
-        // Don't advance activeBlock on stop — let user choose which block to start next
         break;
       case 'skip_mini':
         if (s.phase === 'mini') {
@@ -193,7 +201,7 @@ module.exports = function(req, res) {
       case 'reset': {
         const log = s.log || [];
         s = defaultState();
-        s.log = log; // preserve log across resets
+        s.log = log;
         break;
       }
       case 'update_block': {
@@ -215,6 +223,7 @@ module.exports = function(req, res) {
         s.miniLoop.push(true);
         break;
       }
+      case 'clear_log':
         s.log = [];
         break;
       default:
@@ -222,11 +231,7 @@ module.exports = function(req, res) {
     }
 
     writeState(s);
-    const block = s.blocks[s.activeBlock] || { tasks:[] };
-    return res.status(200).json({
-      ...s, isOwner:true, ownerToken:getToken(),
-      taskSlots: getTaskSlots(block),
-    });
+    return res.status(200).json(buildResponse(s, true));
   }
 
   return res.status(405).json({ error:'Method not allowed' });
