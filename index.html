@@ -158,6 +158,15 @@
     .break-icon { font-size:28px; margin-bottom:8px; }
     .break-label { font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--blue); text-transform:uppercase; }
     .break-sub { font-family:var(--mono); font-size:10px; color:var(--text3); margin-top:8px; }
+    .break-review-task { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); }
+    .break-review-task:last-child { border-bottom:none; }
+    .break-review-text { font-family:var(--serif); font-size:13px; color:var(--text2); flex:1; }
+    .break-status-btns { display:flex; gap:4px; flex-shrink:0; }
+    .break-status-btn { background:#1a1a1a; border:1px solid var(--border2); border-radius:2px; width:26px; height:26px; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; transition:all .15s; padding:0; color:var(--text2); }
+    .break-status-btn:hover { border-color:var(--text3); }
+    .break-status-btn.s-done { border-color:var(--green); background:#0d1a0d; color:var(--green); }
+    .break-status-btn.s-skip { border-color:#8b7a1a; background:#1a1800; color:#c9b000; }
+    .break-status-btn.s-miss { border-color:var(--red); background:var(--red-dim); color:#c05050; }
 
     .structure-list { display:flex; flex-direction:column; gap:8px; }
     .structure-row { display:flex; justify-content:space-between; align-items:center; }
@@ -231,9 +240,9 @@
     .btn-presets:hover { color:var(--text2); border-color:var(--border2); }
 
     @media(max-width:640px) {
-      main { flex-direction:column; }
-      #timer-panel { width:100%; position:static; height:auto; border-top:1px solid var(--border); }
-      #blocks-panel { border-right:none; }
+      main { flex-direction:column-reverse; }
+      #timer-panel { width:100%; position:static; height:auto; border-top:none; border-bottom:1px solid var(--border); order:1; }
+      #blocks-panel { border-right:none; order:2; }
       .timer-display { font-size:48px; }
     }
   </style>
@@ -315,7 +324,11 @@
         <div class="break-card">
           <div class="break-icon">☕</div>
           <div class="break-label">Break Time</div>
-          <div class="break-sub">Next block queued automatically</div>
+          <div class="break-sub" id="break-sub-text">Rest up · next block ready</div>
+        </div>
+        <div id="break-review" style="margin-top:16px;display:none">
+          <div class="panel-label" style="margin-bottom:10px">Review Tasks</div>
+          <div id="break-review-tasks"></div>
         </div>
       </div>
       <div id="idle-section">
@@ -490,6 +503,7 @@ let openWrap   = null;
 let saveTimers = {};
 let prevZone   = -1;
 let prevPhase  = null;
+let breakReview = {}; // { completedAt: { ti: 'done'|'skip'|'miss' } }
 
 // ═══════════════════════════════════════════════════════
 //  BOOT — no auto-claim; user must explicitly log in
@@ -568,8 +582,11 @@ async function poll() {
     const r = await fetch(`${STATE_URL}?action=get&_=${Date.now()}`, { headers });
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
-    // Sound triggers
-    if (state) checkSoundTriggers(state, d);
+    // Sound triggers + break-end freeze
+    if (state) {
+      checkSoundTriggers(state, d);
+      checkBreakEnd(state, d);
+    }
     isOwner = !!d.isOwner;
     state   = d;
     setSyncDot('live');
@@ -672,7 +689,7 @@ function doStart(bi) {
       if (!state) return;
       if (state.phase === 'mini') announceZone(0);
       else if (state.phase === 'task') announceCurrentTask();
-    }, 3000);
+    }, 1000);
   });
 }
 function announceCurrentTask() {
@@ -989,10 +1006,48 @@ function renderTimerPanel() {
   }
   ctrl.style.display = (isOwner && phase !== 'idle') ? 'flex' : 'none';
 
-  document.getElementById('mini-loop-section').style.display   = phase==='mini'  ?'block':'none';
-  document.getElementById('break-section').style.display       = phase==='break' ?'block':'none';
-  document.getElementById('idle-section').style.display        = phase==='idle'  ?'block':'none';
-  document.getElementById('active-tasks-section').style.display= (phase==='task'||phase==='mini')?'block':'none';
+  document.getElementById('mini-loop-section').style.display    = phase==='mini'  ?'block':'none';
+  document.getElementById('break-section').style.display        = phase==='break' ?'block':'none';
+  document.getElementById('idle-section').style.display         = phase==='idle'  ?'block':'none';
+  document.getElementById('active-tasks-section').style.display = (phase==='task'||phase==='mini')?'block':'none';
+
+  // Break review — show tasks from just-completed block with status buttons
+  if (phase === 'break') {
+    const log = state.log || [];
+    const lastEntry = log.length ? log[log.length - 1] : null;
+    const reviewDiv = document.getElementById('break-review');
+    const reviewTasks = document.getElementById('break-review-tasks');
+    if (lastEntry && lastEntry.tasks && lastEntry.tasks.length) {
+      reviewDiv.style.display = 'block';
+      const cat = lastEntry.completedAt;
+      if (!breakReview[cat]) {
+        // Default all tasks to 'done'
+        breakReview[cat] = {};
+        lastEntry.tasks.forEach((t, ti) => { breakReview[cat][ti] = 'done'; });
+      }
+      reviewTasks.innerHTML = '';
+      lastEntry.tasks.forEach((t, ti) => {
+        const text = typeof t==='string' ? t : t.text;
+        const mins = typeof t==='object' ? t.minutes : 0;
+        const status = breakReview[cat][ti] || 'done';
+        const row = document.createElement('div');
+        row.className = 'break-review-task';
+        row.innerHTML = `
+          <span class="break-review-text">${esc(text)}${mins?` <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${mins}m</span>`:''}</span>
+          <div class="break-status-btns">
+            <button class="break-status-btn ${status==='done'?'s-done':''}" title="Completed"
+              onclick="setBreakStatus(${cat},${ti},'done')">✓</button>
+            <button class="break-status-btn ${status==='skip'?'s-skip':''}" title="Partial"
+              onclick="setBreakStatus(${cat},${ti},'skip')">♻</button>
+            <button class="break-status-btn ${status==='miss'?'s-miss':''}" title="Missed"
+              onclick="setBreakStatus(${cat},${ti},'miss')">✕</button>
+          </div>`;
+        reviewTasks.appendChild(row);
+      });
+    } else {
+      reviewDiv.style.display = 'none';
+    }
+  }
 
   if (phase === 'idle') {
     const sl = document.getElementById('structure-list');
@@ -1071,7 +1126,37 @@ function renderTimerPanel() {
   }
 }
 
-// Log status stored per task: { [taskKey]: 'done'|'skip'|'miss' }
+function setBreakStatus(cat, ti, val) {
+  if (!breakReview[cat]) breakReview[cat] = {};
+  breakReview[cat][ti] = val;
+  // Persist to localStorage immediately
+  persistBreakReview();
+  renderTimerPanel(); // re-render break section to update button highlight
+}
+
+function persistBreakReview() {
+  // Merge breakReview into log statuses storage
+  const statuses = getLogStatuses();
+  Object.keys(breakReview).forEach(cat => {
+    Object.keys(breakReview[cat]).forEach(ti => {
+      const key = cat + '_' + ti;
+      statuses[key] = breakReview[cat][ti];
+    });
+  });
+  try { localStorage.setItem('pomo_log_status', JSON.stringify(statuses)); } catch {}
+}
+
+// Watch for break→idle transition to freeze statuses
+function checkBreakEnd(prev, next) {
+  if (prev && prev.phase === 'break' && next.phase !== 'break') {
+    persistBreakReview();
+    // Freeze them so log shows without buttons
+    const frozen = JSON.parse(localStorage.getItem('pomo_log_frozen')||'{}');
+    const statuses = getLogStatuses();
+    Object.keys(statuses).forEach(k => { frozen[k] = statuses[k]; });
+    try { localStorage.setItem('pomo_log_frozen', JSON.stringify(frozen)); } catch {}
+  }
+}
 function getLogStatuses() { try { return JSON.parse(localStorage.getItem('pomo_log_status')||'{}'); } catch { return {}; } }
 function setLogStatus(key, val) {
   const s = getLogStatuses(); s[key] = val;
@@ -1085,11 +1170,10 @@ function renderLog() {
   const clearBtn = document.getElementById('clear-log-btn');
   const setBtn   = document.getElementById('set-log-btn');
   const log = state.log || [];
-  clearBtn.style.display = (isOwner && log.length) ? 'block' : 'none';
-  if (setBtn) setBtn.style.display = (isOwner && log.length) ? 'block' : 'none';
+  if (clearBtn) clearBtn.style.display = (isOwner && log.length) ? 'block' : 'none';
+  if (setBtn)   setBtn.style.display   = 'none'; // no longer needed
   if (!log.length) { el.innerHTML = '<div class="log-empty">No completed blocks yet.</div>'; return; }
   const statuses = getLogStatuses();
-  const frozen   = JSON.parse(localStorage.getItem('pomo_log_frozen')||'{}');
   el.innerHTML = '';
   [...log].reverse().forEach((entry) => {
     const div = document.createElement('div');
@@ -1103,22 +1187,17 @@ function renderLog() {
       taskHTML = '<span class="log-task-text" style="font-style:italic;color:var(--text3)">No tasks recorded</span>';
     } else {
       taskHTML = tasks.map((t, ti) => {
-        const text   = typeof t==='string' ? t : t.text;
-        const mins   = typeof t==='object' ? t.minutes : 0;
-        const key    = taskKey(entry, ti);
-        const isFrozen = key in frozen;
-        const status = isFrozen ? frozen[key] : (statuses[key] || 'done');
+        const text = typeof t==='string' ? t : t.text;
+        const mins = typeof t==='object' ? t.minutes : 0;
+        const key  = taskKey(entry, ti);
+        const status = statuses[key] || 'done';
         const dotColor = status==='done' ? 'var(--green)' : status==='skip' ? '#8b7a1a' : 'var(--red)';
-        const btns = (isOwner && !isFrozen) ? `<div class="log-status-btns">
-          <button class="log-status-btn ${status==='done'?'active-done':''}" title="Completed" onmousedown="event.stopPropagation()" onclick="setLogStatus('${key}','done')">✓</button>
-          <button class="log-status-btn ${status==='skip'?'active-skip':''}" title="Partial"   onmousedown="event.stopPropagation()" onclick="setLogStatus('${key}','skip')">♻</button>
-          <button class="log-status-btn ${status==='miss'?'active-miss':''}" title="Missed"    onmousedown="event.stopPropagation()" onclick="setLogStatus('${key}','miss')">✕</button>
-        </div>` : `<span style="font-family:var(--mono);font-size:9px;color:${dotColor};margin-left:4px">${status==='done'?'✓':status==='skip'?'♻':'✕'}</span>`;
+        const icon = status==='done' ? '✓' : status==='skip' ? '♻' : '✕';
         return `
           <div class="log-task">
             <div class="log-task-dot" style="background:${dotColor}"></div>
             <span class="log-task-text">${esc(text)}${mins?` <span style="color:var(--text3)">(${mins}m)</span>`:''}</span>
-            ${btns}
+            <span style="font-family:var(--mono);font-size:10px;color:${dotColor};margin-left:4px">${icon}</span>
           </div>`;
       }).join('');
     }
