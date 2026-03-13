@@ -223,8 +223,8 @@ module.exports = function(req, res) {
         s.miniLoop.push(true);
         break;
       }
-      case 'clear_log':
-        s.log = [];
+      case 'tick':
+        // Owner heartbeat — just advance and persist, no other changes
         break;
       default:
         return res.status(400).json({ error:'Unknown action' });
