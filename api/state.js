@@ -1,14 +1,13 @@
 const fs = require('fs');
 const crypto = require('crypto');
 
-const STATE_FILE = '/tmp/pomo_state.json';
-const MINI_DUR   = 240;  // 4 min (1 min per zone) — TESTING
-const BREAK_DUR  = 900;  // 15 min
-const DEF_TASK_DUR = 2100; // 35 min default focus
+const STATE_FILE  = '/tmp/pomo_state.json';
+const MINI_DUR    = 240;   // 4 min total (1 min/zone) — TESTING
+const BREAK_DUR   = 900;   // 15 min
+const DEF_TASK_DUR = 2100; // 35 min if no task times set
 
 function now() { return Math.floor(Date.now() / 1000); }
 
-// Always normalize a task to {text, minutes}
 function nt(t) {
   if (!t || typeof t === 'string') return { text: String(t||'').replace(/<[^>]*>/g,'').slice(0,200), minutes: 0 };
   return { text: String(t.text||'').replace(/<[^>]*>/g,'').slice(0,200), minutes: Number(t.minutes)||0 };
@@ -21,9 +20,15 @@ function normBlock(b) {
   };
 }
 
-function getTaskDur(block) {
-  const sum = (block.tasks||[]).reduce((a,t) => a + (Number(t.minutes)||0), 0);
-  return sum > 0 ? sum * 60 : DEF_TASK_DUR;
+// Returns array of {text, seconds} for each task that has a time set,
+// or a single entry with DEF_TASK_DUR if none have times.
+function getTaskSlots(block) {
+  const timed = (block.tasks||[]).filter(t => t.text.trim() && Number(t.minutes) > 0);
+  if (timed.length > 0) return timed.map(t => ({ text: t.text, seconds: t.minutes * 60 }));
+  // Fall back: all named tasks share DEF_TASK_DUR as one slot
+  const named = (block.tasks||[]).filter(t => t.text.trim());
+  if (named.length > 0) return [{ text: named.map(t=>t.text).join(' + '), seconds: DEF_TASK_DUR }];
+  return [{ text: '', seconds: DEF_TASK_DUR }];
 }
 
 function freshBlocks() {
@@ -36,7 +41,8 @@ function freshBlocks() {
 
 function defaultState() {
   return {
-    phase:'idle', activeBlock:0, secondsLeft:0, elapsed:0,
+    phase:'idle', activeBlock:0, activeTaskSlot:0,
+    secondsLeft:0, elapsed:0,
     completedBlocks:[], serverTime:now(), running:false, paused:false,
     miniLoop:[true,true,true],
     blocks: freshBlocks(),
@@ -49,8 +55,8 @@ function readState() {
     if (fs.existsSync(STATE_FILE)) {
       const s = JSON.parse(fs.readFileSync(STATE_FILE,'utf8'));
       if (s && s.phase) {
-        // Always normalize blocks on read to fix any legacy string tasks
         if (Array.isArray(s.blocks)) s.blocks = s.blocks.map(normBlock);
+        if (s.activeTaskSlot == null) s.activeTaskSlot = 0;
         return s;
       }
     }
@@ -60,7 +66,7 @@ function readState() {
 
 function writeState(s) {
   s.serverTime = now();
-  fs.writeFileSync(STATE_FILE, JSON.stringify(s));
+  try { fs.writeFileSync(STATE_FILE, JSON.stringify(s)); } catch(e) {}
 }
 
 function getToken() { return process.env.OWNER_TOKEN || 'default-dev-token'; }
@@ -87,19 +93,33 @@ function advanceState(s) {
 
 function nextPhase(s) {
   const block = s.blocks[s.activeBlock] || { tasks:[] };
+  const slots  = getTaskSlots(block);
+
   if (s.phase === 'mini') {
-    s.phase = 'task'; s.secondsLeft = getTaskDur(block); s.elapsed = 0;
+    // Start first task slot
+    s.phase = 'task'; s.activeTaskSlot = 0;
+    s.secondsLeft = slots[0].seconds; s.elapsed = 0;
+
   } else if (s.phase === 'task') {
-    s.log = (s.log||[]).concat({
-      blockLabel: block.label,
-      tasks: block.tasks.filter(t => t.text && t.text.trim()),
-      completedAt: now(),
-    });
-    s.completedBlocks = (s.completedBlocks||[]).concat(s.activeBlock);
-    s.phase = 'break'; s.secondsLeft = BREAK_DUR; s.elapsed = 0;
+    const nextSlot = (s.activeTaskSlot||0) + 1;
+    if (nextSlot < slots.length) {
+      // Advance to next task slot
+      s.activeTaskSlot = nextSlot;
+      s.secondsLeft = slots[nextSlot].seconds; s.elapsed = 0;
+    } else {
+      // All task slots done → break
+      s.log = (s.log||[]).concat({
+        blockLabel: block.label,
+        tasks: block.tasks.filter(t => t.text && t.text.trim()),
+        completedAt: now(),
+      });
+      s.completedBlocks = (s.completedBlocks||[]).concat(s.activeBlock);
+      s.phase = 'break'; s.secondsLeft = BREAK_DUR; s.elapsed = 0; s.activeTaskSlot = 0;
+    }
+
   } else if (s.phase === 'break') {
     s.phase = 'idle'; s.running = false; s.paused = false;
-    s.secondsLeft = 0; s.elapsed = 0;
+    s.secondsLeft = 0; s.elapsed = 0; s.activeTaskSlot = 0;
     if (s.activeBlock < s.blocks.length - 1) s.activeBlock++;
   }
   return s;
@@ -115,7 +135,13 @@ module.exports = function(req, res) {
     if (action === 'setup') return res.status(200).json({ ownerToken: getToken() });
     let s = advanceState(readState());
     writeState(s);
-    return res.status(200).json({ ...s, isOwner: owner, ...(owner ? { ownerToken: getToken() } : {}) });
+    // Include task slots for current block so client can display them
+    const block = s.blocks[s.activeBlock] || { tasks:[] };
+    return res.status(200).json({
+      ...s, isOwner: owner,
+      taskSlots: getTaskSlots(block),
+      ...(owner ? { ownerToken: getToken() } : {}),
+    });
   }
 
   if (req.method === 'POST') {
@@ -126,10 +152,14 @@ module.exports = function(req, res) {
     switch (action) {
       case 'start': {
         const bi = body.blockIndex != null ? Number(body.blockIndex) : s.activeBlock;
-        s.activeBlock = bi;
+        s.activeBlock = bi; s.activeTaskSlot = 0;
         const useMini = s.miniLoop[bi] !== false;
-        s.phase = useMini ? 'mini' : 'task';
-        s.secondsLeft = useMini ? MINI_DUR : getTaskDur(s.blocks[bi]);
+        if (useMini) {
+          s.phase = 'mini'; s.secondsLeft = MINI_DUR;
+        } else {
+          const slots = getTaskSlots(s.blocks[bi]);
+          s.phase = 'task'; s.secondsLeft = slots[0].seconds;
+        }
         s.elapsed = 0; s.running = true; s.paused = false;
         break;
       }
@@ -140,25 +170,30 @@ module.exports = function(req, res) {
         if (s.running && s.paused) { s.paused = false; s.serverTime = now(); }
         break;
       case 'stop':
-        s.phase='idle'; s.running=false; s.paused=false; s.secondsLeft=0; s.elapsed=0;
+        s.phase='idle'; s.running=false; s.paused=false;
+        s.secondsLeft=0; s.elapsed=0; s.activeTaskSlot=0;
+        // Don't advance activeBlock on stop — let user choose which block to start next
         break;
       case 'skip_mini':
         if (s.phase === 'mini') {
-          s.phase = 'task'; s.secondsLeft = getTaskDur(s.blocks[s.activeBlock]); s.elapsed = 0;
+          const slots = getTaskSlots(s.blocks[s.activeBlock]);
+          s.phase = 'task'; s.activeTaskSlot = 0;
+          s.secondsLeft = slots[0].seconds; s.elapsed = 0;
         }
         break;
+      case 'skip_task':
+        if (s.phase === 'task') s = nextPhase(s);
+        break;
       case 'reset': {
-        // Full reset — timer, completion, active block. Keep log only.
         const log = s.log || [];
-        s = defaultState();
-        s.log = log;
+        s = defaultState(); s.log = log;
         break;
       }
       case 'update_block': {
         const bi = body.blockIndex != null ? Number(body.blockIndex) : 0;
         if (!s.blocks[bi]) break;
         if (body.label != null) s.blocks[bi].label = String(body.label).replace(/<[^>]*>/g,'').slice(0,200);
-        if (body.tasks != null) s.blocks[bi].tasks = (Array.isArray(body.tasks) ? body.tasks : []).slice(0,3).map(nt);
+        if (body.tasks != null) s.blocks[bi].tasks = (Array.isArray(body.tasks)?body.tasks:[]).slice(0,3).map(nt);
         if (body.miniLoop != null) s.miniLoop[bi] = !!body.miniLoop;
         break;
       }
@@ -175,7 +210,11 @@ module.exports = function(req, res) {
     }
 
     writeState(s);
-    return res.status(200).json({ ...s, isOwner:true, ownerToken:getToken() });
+    const block = s.blocks[s.activeBlock] || { tasks:[] };
+    return res.status(200).json({
+      ...s, isOwner:true, ownerToken:getToken(),
+      taskSlots: getTaskSlots(block),
+    });
   }
 
   return res.status(405).json({ error:'Method not allowed' });
