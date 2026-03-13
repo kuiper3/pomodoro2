@@ -249,42 +249,24 @@ const POLL_MS    = 1000;
 const SAVE_DELAY = 800;
 
 // ═══════════════════════════════════════════════════════
-//  AUDIO — Web Audio API tones (no files needed)
+//  SPEECH — Web Speech API (works on Android + desktop)
 // ═══════════════════════════════════════════════════════
-let audioCtx = null;
-function getCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
-function playTone(freq, duration, volume, type='sine') {
+function speak(text, rate=0.95, pitch=1.0) {
   try {
-    const ctx = getCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = type; osc.frequency.value = freq;
-    gain.gain.setValueAtTime(volume, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + duration);
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = rate; u.pitch = pitch; u.volume = 1.0;
+    const voices = window.speechSynthesis.getVoices();
+    const eng = voices.find(v => v.lang.startsWith('en')) || voices[0];
+    if (eng) u.voice = eng;
+    window.speechSynthesis.speak(u);
   } catch(e) {}
 }
-function playZoneChime() {
-  // Soft single ding
-  playTone(880, 0.4, 0.15);
-}
-function playMiniComplete() {
-  // Three ascending tones
-  playTone(523, 0.3, 0.3);
-  setTimeout(() => playTone(659, 0.3, 0.3), 200);
-  setTimeout(() => playTone(784, 0.5, 0.4), 400);
-}
-function playBlockComplete() {
-  // Full fanfare
-  playTone(523, 0.3, 0.4);
-  setTimeout(() => playTone(659, 0.3, 0.4), 250);
-  setTimeout(() => playTone(784, 0.3, 0.4), 500);
-  setTimeout(() => playTone(1047, 0.8, 0.5), 750);
+if (window.speechSynthesis) {
+  window.speechSynthesis.getVoices();
+  if (window.speechSynthesis.onvoiceschanged !== undefined)
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -381,17 +363,27 @@ async function poll() {
 }
 
 function checkSoundTriggers(prev, next) {
-  // Zone change during mini
+  // Zone change during mini → announce new zone
   if (next.phase === 'mini' && prev.phase === 'mini') {
     const zi = getZone(next.elapsed);
     const pi = getZone(prev.elapsed);
-    if (zi !== pi) playZoneChime();
+    if (zi !== pi) announceZone(ZONES[zi].name);
+  }
+  // Mini just started (idle/task→mini counts as zone 0)
+  if (prev.phase !== 'mini' && next.phase === 'mini') {
+    announceZone(ZONES[0].name);
   }
   // Mini loop completed → task starts
-  if (prev.phase === 'mini' && next.phase === 'task') playMiniComplete();
+  if (prev.phase === 'mini' && next.phase === 'task') announceMiniDone();
   // Task completed → break
-  if (prev.phase === 'task' && next.phase === 'break') playBlockComplete();
+  if (prev.phase === 'task' && next.phase === 'break') announceBlockDone();
+  // Break done → idle
+  if (prev.phase === 'break' && next.phase === 'idle') announceBreakDone();
 }
+function announceZone(zoneName)  { speak(`Start ${zoneName} area`); }
+function announceMiniDone()      { speak('Mini loop complete. Starting focus work.', 0.9); }
+function announceBlockDone()     { speak('Block complete. Take your break.', 0.9); }
+function announceBreakDone()     { speak('Break over. Ready for next block.', 0.9); }
 
 function setSyncDot(s) {
   const dot = document.getElementById('sync-dot');
@@ -520,8 +512,9 @@ function renderTaskList(bi) {
   // Task rows
   const ph = ['Main task…','Secondary task…','Optional task…'];
   (block.tasks || []).forEach((task, ti) => {
-    const taskText = typeof task === 'string' ? task : (task.text || '');
-    const taskMins = typeof task === 'object' ? (task.minutes || 0) : 0;
+    // Normalize: tasks can be strings (legacy) or {text, minutes} objects
+    const taskText = task && typeof task === 'object' ? (task.text || '') : String(task || '');
+    const taskMins = task && typeof task === 'object' ? (Number(task.minutes) || 0) : 0;
     const row = document.createElement('div');
     row.className = 'task-row';
     if (isOwner) {
@@ -540,7 +533,8 @@ function renderTaskList(bi) {
           <div class="task-dropdown" id="dd-${bi}-${ti}"></div>
         </div>
         <select class="time-select" title="Task duration"
-          onchange="onTimeChange(${bi},${ti},this.value)">${timeOpts}</select>
+          onclick="event.stopPropagation()"
+          onchange="event.stopPropagation();onTimeChange(${bi},${ti},this.value)">${timeOpts}</select>
         ${block.tasks.length>1?`<button class="btn-remove" onclick="removeTask(${bi},${ti})">×</button>`:''}
       `;
     } else {
@@ -719,6 +713,7 @@ function removeTask(bi, ti) {
 //  DROPDOWN
 // ═══════════════════════════════════════════════════════
 document.addEventListener('click', e => {
+  if (e.target.classList.contains('time-select')) return; // don't close DD when clicking time picker
   if (openWrap && !openWrap.contains(e.target)) closeAllDD();
 });
 function closeAllDD() {
