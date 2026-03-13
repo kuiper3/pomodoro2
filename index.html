@@ -363,27 +363,33 @@ async function poll() {
 }
 
 function checkSoundTriggers(prev, next) {
-  // Zone change during mini → announce new zone
+  // Only the owner device should speak
+  if (!isOwner) return;
+  // Only announce if timer is actually running (not paused, not idle)
+  if (!next.running || next.paused) return;
+
+  // Mini just started for the first time
+  if (prev.phase !== 'mini' && next.phase === 'mini') {
+    announceZone(0);
+    return;
+  }
+  // Zone change during mini — only when zone index actually increases
   if (next.phase === 'mini' && prev.phase === 'mini') {
     const zi = getZone(next.elapsed);
     const pi = getZone(prev.elapsed);
-    if (zi !== pi) announceZone(ZONES[zi].name);
-  }
-  // Mini just started (idle/task→mini counts as zone 0)
-  if (prev.phase !== 'mini' && next.phase === 'mini') {
-    announceZone(ZONES[0].name);
+    if (zi > pi) { announceZone(zi); return; }
   }
   // Mini loop completed → task starts
-  if (prev.phase === 'mini' && next.phase === 'task') announceMiniDone();
+  if (prev.phase === 'mini' && next.phase === 'task') { announceMiniDone(); return; }
   // Task completed → break
-  if (prev.phase === 'task' && next.phase === 'break') announceBlockDone();
+  if (prev.phase === 'task' && next.phase === 'break') { announceBlockDone(); return; }
   // Break done → idle
-  if (prev.phase === 'break' && next.phase === 'idle') announceBreakDone();
+  if (prev.phase === 'break' && next.phase === 'idle') { announceBreakDone(); return; }
 }
-function announceZone(zoneName)  { speak(`Start ${zoneName} area`); }
-function announceMiniDone()      { speak('Mini loop complete. Starting focus work.', 0.9); }
-function announceBlockDone()     { speak('Block complete. Take your break.', 0.9); }
-function announceBreakDone()     { speak('Break over. Ready for next block.', 0.9); }
+function announceZone(zi)    { speak(`Start ${ZONES[zi].name}`); }
+function announceMiniDone()  { speak('Mini loop complete. Starting focus work.', 0.9); }
+function announceBlockDone() { speak('Block complete. Take your break.', 0.9); }
+function announceBreakDone() { speak('Break over. Ready for next block.', 0.9); }
 
 function setSyncDot(s) {
   const dot = document.getElementById('sync-dot');
@@ -527,12 +533,12 @@ function renderTaskList(bi) {
           <input class="task-input" id="inp-${bi}-${ti}"
             value="${esc(taskText)}" placeholder="${ph[ti]||'Task…'}" autocomplete="off"
             oninput="onTaskInput(${bi},${ti},this.value)"
-            onchange="onTaskSave(${bi},${ti},this.value)"
-            onfocus="openDD(${bi},${ti})" />
+            onchange="onTaskSave(${bi},${ti},this.value)" />
           <span class="task-dd-arrow" onmousedown="event.preventDefault();toggleDD(${bi},${ti})">▾</span>
           <div class="task-dropdown" id="dd-${bi}-${ti}"></div>
         </div>
         <select class="time-select" title="Task duration"
+          onmousedown="event.stopPropagation()"
           onclick="event.stopPropagation()"
           onchange="event.stopPropagation();onTimeChange(${bi},${ti},this.value)">${timeOpts}</select>
         ${block.tasks.length>1?`<button class="btn-remove" onclick="removeTask(${bi},${ti})">×</button>`:''}
@@ -713,7 +719,8 @@ function removeTask(bi, ti) {
 //  DROPDOWN
 // ═══════════════════════════════════════════════════════
 document.addEventListener('click', e => {
-  if (e.target.classList.contains('time-select')) return; // don't close DD when clicking time picker
+  // Don't close suggestions dropdown when clicking time picker
+  if (e.target.classList.contains('time-select') || e.target.closest('.time-select')) return;
   if (openWrap && !openWrap.contains(e.target)) closeAllDD();
 });
 function closeAllDD() {
