@@ -186,7 +186,8 @@ module.exports = function(req, res) {
         break;
       case 'reset': {
         const log = s.log || [];
-        s = defaultState(); s.log = log;
+        s = defaultState();
+        s.log = log; // preserve log across resets
         break;
       }
       case 'update_block': {
@@ -202,7 +203,12 @@ module.exports = function(req, res) {
         s.miniLoop[bi] = !(s.miniLoop[bi] !== false);
         break;
       }
-      case 'clear_log':
+      case 'add_block': {
+        const newIdx = s.blocks.length + 1;
+        s.blocks.push({ label: `Block ${newIdx}`, tasks: [{ text:'', minutes:0 }, { text:'', minutes:0 }] });
+        s.miniLoop.push(true);
+        break;
+      }
         s.log = [];
         break;
       default:
