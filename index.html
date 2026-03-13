@@ -98,7 +98,12 @@
     .btn-remove { background:none; border:none; color:var(--text3); font-size:18px; cursor:pointer; padding:0 2px; line-height:1; }
     .btn-add { background:none; border:none; color:var(--text3); font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; padding:8px 0; text-align:left; }
     .btn-add:disabled { cursor:default; opacity:.4; }
+    .btn-add-block { width:100%; font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text3); background:none; border:1px dashed var(--border2); border-radius:3px; padding:12px; cursor:pointer; text-align:center; transition:all .2s; margin-top:4px; }
+    .btn-add-block:hover { color:var(--text2); border-color:var(--amber); }
     .time-warning { font-family:var(--mono); font-size:10px; color:#c05050; letter-spacing:1px; padding:6px 0 2px; animation:shake .4s ease; }
+    .time-chip { font-family:var(--mono); font-size:13px; font-weight:500; letter-spacing:1px; border-radius:3px; padding:3px 10px; margin-left:10px; vertical-align:middle; }
+    .btn-set-log { font-family:var(--mono); font-size:9px; letter-spacing:1.5px; color:#9b70c0; background:none; border:1px solid #7a52a0; padding:4px 10px; border-radius:2px; cursor:pointer; text-transform:uppercase; transition:all .2s; }
+    .btn-set-log:hover { color:#b898d8; border-color:#9b70c0; }
     @keyframes shake {
       0%,100% { transform:translateX(0); }
       20% { transform:translateX(-5px); }
@@ -128,7 +133,8 @@
     .btn-ctrl.pause { border-color:var(--amber); color:var(--amber); }
     .btn-ctrl.resume { border-color:var(--green); color:var(--green); }
     .btn-ctrl.stop  { border-color:var(--red); color:var(--red); }
-    .btn-ctrl.skip  { border-color:var(--border2); color:var(--text3); }
+    .btn-ctrl.skip  { border-color:#7a52a0; color:#9b70c0; }
+    .btn-ctrl.skip:hover { border-color:#9b70c0; color:#b898d8; }
 
     .zone-list { display:flex; flex-direction:column; gap:6px; }
     .zone-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:2px; border:1px solid transparent; transition:all .4s ease; }
@@ -290,7 +296,10 @@
   <div id="log-section">
     <div class="log-header">
       <div class="panel-label" style="margin-bottom:0">Completed Pomodoros</div>
-      <button class="btn-ghost" id="clear-log-btn" onclick="doClearLog()" style="display:none;font-size:9px;padding:4px 10px">Clear</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-set-log" id="set-log-btn" onclick="doSetLog()" style="display:none">Set Log</button>
+        <button class="btn-ghost" id="clear-log-btn" onclick="doClearLog()" style="display:none;font-size:9px;padding:4px 10px">Clear</button>
+      </div>
     </div>
     <div class="log-entries" id="log-entries">
       <div class="log-empty">No completed blocks yet.</div>
@@ -612,7 +621,28 @@ function doSkipTask()     {
     }, 800);
   });
 }
-function doReset()        { ownerPost('reset'); }
+function doSetLog() {
+  freezeLogStatuses();
+  renderLog();
+}
+function doReset() {
+  freezeLogStatuses();
+  ownerPost('reset');
+}
+function freezeLogStatuses() {
+  // Mark current log entries as "frozen" so buttons hide after reset
+  const log = state.log || [];
+  const statuses = getLogStatuses();
+  const frozen = JSON.parse(localStorage.getItem('pomo_log_frozen')||'{}');
+  log.forEach((entry, ei) => {
+    (entry.tasks||[]).forEach((t, ti) => {
+      const key = taskKey(entry, ti);
+      frozen[key] = statuses[key] || 'done';
+    });
+  });
+  try { localStorage.setItem('pomo_log_frozen', JSON.stringify(frozen)); } catch {}
+}
+function doAddBlock()  { ownerPost('add_block'); }
 function doToggleMini(bi) { ownerPost('toggle_mini', { blockIndex: bi }); }
 function doClearLog()     { if (confirm('Clear completed log?')) ownerPost('clear_log'); }
 
@@ -710,6 +740,15 @@ function renderBlocks() {
     renderTaskList(idx);
   });
 
+  // Add New Block button — at top if any completed, bottom otherwise
+  if (isOwner && state.phase === 'idle') {
+    const addBlockBtn = document.createElement('button');
+    addBlockBtn.className = 'btn-add-block';
+    addBlockBtn.textContent = '+ Add New Block';
+    addBlockBtn.onclick = doAddBlock;
+    c.appendChild(addBlockBtn);
+  }
+
   if (!isOwner) {
     const n = document.createElement('div');
     n.className = 'viewer-notice';
@@ -732,6 +771,8 @@ function renderTaskList(bi) {
   list.innerHTML = '';
   const block = state.blocks[bi];
   const on = state.miniLoop[bi] !== false;
+  const isDone = (state.completedBlocks||[]).includes(bi);
+  const locked = isDone || !isOwner; // lock if done or not owner
 
   // Mini Loop row
   const mr = document.createElement('div');
@@ -741,9 +782,9 @@ function renderTaskList(bi) {
     <span class="mini-label" style="${on?'':'color:var(--text3);text-decoration:line-through'}">
       Mini Loop <span class="mini-dur">(10 min)</span>
     </span>
-    ${isOwner
+    ${!locked
       ? `<button class="mini-toggle ${on?'on':'off'}" onclick="doToggleMini(${bi})">${on?'Include':'Skipped'}</button>`
-      : `<span class="mini-toggle ${on?'on':'off'}" style="cursor:default">${on?'Include':'Skipped'}</span>`}
+      : `<span class="mini-toggle ${on?'on':'off'}" style="cursor:default;opacity:.5">${on?'Include':'Skipped'}</span>`}
   `;
   list.appendChild(mr);
 
@@ -755,7 +796,7 @@ function renderTaskList(bi) {
     const taskMins = task && typeof task === 'object' ? (Number(task.minutes) || 0) : 0;
     const row = document.createElement('div');
     row.className = 'task-row';
-    if (isOwner) {
+    if (!locked) {
       const timeOpts = TIME_OPTS.map(m =>
         `<option value="${m}" ${taskMins===m?'selected':''}>${m===0?'—':m+'m'}</option>`
       ).join('');
@@ -911,14 +952,20 @@ function renderTimerPanel() {
     if (!filled.length) {
       tl.innerHTML=`<span style="font-family:var(--mono);font-size:11px;color:var(--text3);font-style:italic">No tasks added</span>`;
     } else {
-      filled.forEach((t, i) => {
+      // Build a map: task text → which slot indices reference it
+      // Active slot index into the *filled* tasks array (not all tasks)
+      const filledWithIdx = tasks.map((t,origIdx) => ({...t, origIdx})).filter(t => (t.text||'').trim());
+      // slots are built from timed tasks in order — match by position among timed tasks
+      const timedWithIdx = tasks.map((t,origIdx) => ({...t, origIdx})).filter(t => (t.text||'').trim() && Number(t.minutes)>0);
+      filledWithIdx.forEach((t, fi) => {
         const text = t.text || '';
         const mins = t.minutes || 0;
-        // In task phase, highlight the active slot
-        const isCurrentSlot = phase==='task' && slots[currentSlot] && slots[currentSlot].text === text;
+        // Find which slot index this task maps to
+        const slotIdx = timedWithIdx.findIndex(tw => tw.origIdx === t.origIdx);
+        const isCurrentSlot = phase==='task' && slotIdx === currentSlot;
         const d = document.createElement('div');
         d.className = 'active-task';
-        d.style.opacity = (phase==='task' && !isCurrentSlot) ? '0.4' : '1';
+        d.style.opacity = (phase==='task' && timedWithIdx.length > 0 && !isCurrentSlot) ? '0.4' : '1';
         d.innerHTML = `
           <div class="active-task-dot" style="${isCurrentSlot?'background:var(--green);width:6px;height:6px;':''}"></div>
           <span class="active-task-text" style="${isCurrentSlot?'color:var(--text);':''}">
@@ -944,14 +991,15 @@ function taskKey(entry, ti) { return entry.completedAt + '_' + ti; }
 function renderLog() {
   const el = document.getElementById('log-entries');
   const clearBtn = document.getElementById('clear-log-btn');
+  const setBtn   = document.getElementById('set-log-btn');
   const log = state.log || [];
   clearBtn.style.display = (isOwner && log.length) ? 'block' : 'none';
+  if (setBtn) setBtn.style.display = (isOwner && log.length) ? 'block' : 'none';
   if (!log.length) { el.innerHTML = '<div class="log-empty">No completed blocks yet.</div>'; return; }
   const statuses = getLogStatuses();
-  // Session start time: track when page loaded or last reset — use first entry's completedAt as ref
-  // "Active" entries = those in current server log (not yet reset). All are editable until reset.
+  const frozen   = JSON.parse(localStorage.getItem('pomo_log_frozen')||'{}');
   el.innerHTML = '';
-  [...log].reverse().forEach((entry, ri) => {
+  [...log].reverse().forEach((entry) => {
     const div = document.createElement('div');
     div.className = 'log-entry';
     const dt = new Date(entry.completedAt * 1000);
@@ -966,14 +1014,14 @@ function renderLog() {
         const text   = typeof t==='string' ? t : t.text;
         const mins   = typeof t==='object' ? t.minutes : 0;
         const key    = taskKey(entry, ti);
-        const status = statuses[key] || 'done';
+        const isFrozen = key in frozen;
+        const status = isFrozen ? frozen[key] : (statuses[key] || 'done');
         const dotColor = status==='done' ? 'var(--green)' : status==='skip' ? '#8b7a1a' : 'var(--red)';
-        // Show buttons for all current session entries (owner only)
-        const btns = isOwner ? `<div class="log-status-btns">
+        const btns = (isOwner && !isFrozen) ? `<div class="log-status-btns">
           <button class="log-status-btn ${status==='done'?'active-done':''}" title="Completed" onmousedown="event.stopPropagation()" onclick="setLogStatus('${key}','done')">✓</button>
           <button class="log-status-btn ${status==='skip'?'active-skip':''}" title="Partial"   onmousedown="event.stopPropagation()" onclick="setLogStatus('${key}','skip')">♻</button>
           <button class="log-status-btn ${status==='miss'?'active-miss':''}" title="Missed"    onmousedown="event.stopPropagation()" onclick="setLogStatus('${key}','miss')">✕</button>
-        </div>` : '';
+        </div>` : `<span style="font-family:var(--mono);font-size:9px;color:${dotColor};margin-left:4px">${status==='done'?'✓':status==='skip'?'♻':'✕'}</span>`;
         return `
           <div class="log-task">
             <div class="log-task-dot" style="background:${dotColor}"></div>
