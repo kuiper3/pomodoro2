@@ -249,7 +249,26 @@ const POLL_MS    = 1000;
 const SAVE_DELAY = 800;
 
 // ═══════════════════════════════════════════════════════
-//  SPEECH — Web Speech API (works on Android + desktop)
+//  AUDIO — brief chime tone to accompany speech
+// ═══════════════════════════════════════════════════════
+let _audioCtx = null;
+function _tone(freq, dur, vol=0.3) {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = _audioCtx.createOscillator(), g = _audioCtx.createGain();
+    o.connect(g); g.connect(_audioCtx.destination);
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, _audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + dur);
+    o.start(); o.stop(_audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+function chimeZone()  { _tone(880, 0.35, 0.2); }
+function chimeDone()  { _tone(523,0.2,0.3); setTimeout(()=>_tone(659,0.2,0.3),180); setTimeout(()=>_tone(784,0.4,0.35),360); }
+function chimeBreak() { _tone(440,0.5,0.3); }
+
+// ═══════════════════════════════════════════════════════
+//  SPEECH — Web Speech API
 // ═══════════════════════════════════════════════════════
 function speak(text, rate=0.95, pitch=1.0) {
   try {
@@ -298,12 +317,13 @@ function pushHistory(v) {
 //  STATE
 // ═══════════════════════════════════════════════════════
 const ZONES = [
-  {name:'Computer', duration:3, icon:'💻'},
-  {name:'Bed Area',  duration:2, icon:'🛏️'},
-  {name:'Bathroom',  duration:2, icon:'🚿'},
-  {name:'Kitchen',   duration:3, icon:'🍳'},
+  {name:'Computer', duration:1, icon:'💻'},
+  {name:'Bed Area',  duration:1, icon:'🛏️'},
+  {name:'Bathroom',  duration:1, icon:'🚿'},
+  {name:'Kitchen',   duration:1, icon:'🍳'},
 ];
-const ZONE_BOUNDS = [0,180,300,420,600];
+const ZONE_BOUNDS = [0,60,120,180,240];
+const MINI_TOTAL = 240; // 4 min for testing
 
 let state      = null;
 let ownerToken = null;
@@ -386,10 +406,10 @@ function checkSoundTriggers(prev, next) {
   // Break done → idle
   if (prev.phase === 'break' && next.phase === 'idle') { announceBreakDone(); return; }
 }
-function announceZone(zi)    { speak(`Start ${ZONES[zi].name}`); }
-function announceMiniDone()  { speak('Mini loop complete. Starting focus work.', 0.9); }
-function announceBlockDone() { speak('Block complete. Take your break.', 0.9); }
-function announceBreakDone() { speak('Break over. Ready for next block.', 0.9); }
+function announceZone(zi)    { chimeZone(); speak(`Start ${ZONES[zi].name}`); }
+function announceMiniDone()  { chimeDone(); speak('Mini loop complete. Starting focus work.', 0.9); }
+function announceBlockDone() { chimeDone(); speak('Block complete. Take your break.', 0.9); }
+function announceBreakDone() { chimeBreak(); speak('Break over. Ready for next block.', 0.9); }
 
 function setSyncDot(s) {
   const dot = document.getElementById('sync-dot');
@@ -455,8 +475,15 @@ function renderHeader() {
 
 function renderBlocks() {
   const c = document.getElementById('blocks-container');
-  if (document.activeElement && (document.activeElement.classList.contains('task-input') ||
-      document.activeElement.classList.contains('block-title-input'))) return;
+  // Don't re-render while user is interacting with any input or select
+  const active = document.activeElement;
+  if (active && (
+    active.classList.contains('task-input') ||
+    active.classList.contains('block-title-input') ||
+    active.classList.contains('time-select')
+  )) return;
+  // Also skip if a task dropdown is open
+  if (document.querySelector('.task-dropdown.open')) return;
   c.innerHTML = '';
   state.blocks.forEach((block, idx) => {
     const isActive = state.activeBlock===idx && (state.phase==='mini'||state.phase==='task');
@@ -575,7 +602,7 @@ function renderTimerPanel() {
   }
 
   let pct=0, fillColor='var(--text3)';
-  if (phase==='mini')  { pct=((600 -state.secondsLeft)/600)*100; fillColor='var(--amber)'; }
+  if (phase==='mini')  { pct=((MINI_TOTAL-state.secondsLeft)/MINI_TOTAL)*100; fillColor='var(--amber)'; }
   if (phase==='task')  { const d=getTaskDurFromState();pct=((d-state.secondsLeft)/d)*100; fillColor='var(--green)'; }
   if (phase==='break') { pct=((900-state.secondsLeft)/900)*100; fillColor='var(--blue)'; }
   const fill = document.getElementById('progress-fill');
@@ -703,7 +730,13 @@ function onTaskSave(bi, ti, val) {
 function onTimeChange(bi, ti, mins) {
   const t = getTask(bi, ti);
   setTask(bi, ti, t.text, Number(mins));
-  scheduleBlockSave(bi);
+  // Save immediately (no debounce) so the value isn't lost on next render
+  ownerPost('update_block', {
+    blockIndex: bi,
+    label: state.blocks[bi].label,
+    tasks: state.blocks[bi].tasks,
+    miniLoop: state.miniLoop[bi],
+  });
 }
 function addTask(bi) {
   if (state.blocks[bi].tasks.length >= 3) return;
@@ -745,7 +778,16 @@ function buildDD(bi, ti, query) {
 }
 function openDD(bi,ti){buildDD(bi,ti,getTask(bi,ti).text||'');closeAllDD();const dd=document.getElementById(`dd-${bi}-${ti}`);const wrap=document.getElementById(`wrap-${bi}-${ti}`);if(dd&&wrap){dd.classList.add('open');openWrap=wrap;}}
 function toggleDD(bi,ti){const dd=document.getElementById(`dd-${bi}-${ti}`);if(!dd)return;if(dd.classList.contains('open')){closeAllDD();return;}openDD(bi,ti);}
-function pick(bi,ti,val){const t=getTask(bi,ti);setTask(bi,ti,val,t.minutes);pushHistory(val);closeAllDD();onTaskSave(bi,ti,val);renderTaskList(bi);}
+function pick(bi,ti,val) {
+  const t = getTask(bi,ti);
+  setTask(bi,ti,val,t.minutes);
+  pushHistory(val);
+  closeAllDD();
+  // Directly update the input so it's visible immediately
+  const inp = document.getElementById(`inp-${bi}-${ti}`);
+  if (inp) inp.value = val;
+  onTaskSave(bi,ti,val);
+}
 
 // ═══════════════════════════════════════════════════════
 //  UTILS
