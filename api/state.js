@@ -2,7 +2,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 const STATE_FILE = '/tmp/pomo_state.json';
-const MINI_DUR = 600, BREAK_DUR = 900;
+const MINI_DUR = 240, BREAK_DUR = 900; // 4 min mini for testing
 
 function now() { return Math.floor(Date.now() / 1000); }
 
