@@ -97,6 +97,14 @@
     .btn-remove { background:none; border:none; color:var(--text3); font-size:18px; cursor:pointer; padding:0 2px; line-height:1; }
     .btn-add { background:none; border:none; color:var(--text3); font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; padding:8px 0; text-align:left; }
     .btn-add:disabled { cursor:default; opacity:.4; }
+    .time-warning { font-family:var(--mono); font-size:10px; color:#c05050; letter-spacing:1px; padding:6px 0 2px; animation:shake .4s ease; }
+    @keyframes shake {
+      0%,100% { transform:translateX(0); }
+      20% { transform:translateX(-5px); }
+      40% { transform:translateX(5px); }
+      60% { transform:translateX(-4px); }
+      80% { transform:translateX(4px); }
+    }
 
     /* Timer panel */
     #timer-panel { width:300px; flex-shrink:0; background:#0c0c0c; padding:24px 20px; display:flex; flex-direction:column; gap:24px; position:sticky; top:57px; height:calc(100vh - 57px); overflow-y:auto; }
@@ -157,15 +165,21 @@
     .log-entry-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
     .log-entry-label { font-family:var(--serif); font-size:13px; color:var(--text); }
     .log-entry-time { font-family:var(--mono); font-size:9px; color:var(--text3); letter-spacing:1px; }
-    .log-entry-tasks { display:flex; flex-direction:column; gap:4px; }
+    .log-entry-tasks { display:flex; flex-direction:column; gap:6px; }
     .log-task { display:flex; gap:8px; align-items:center; }
-    .log-task-dot { width:4px; height:4px; border-radius:50%; background:var(--green); flex-shrink:0; }
-    .log-task-text { font-family:var(--serif); font-size:12px; color:var(--text3); }
+    .log-task-dot { width:6px; height:6px; border-radius:50%; background:var(--green); flex-shrink:0; }
+    .log-task-text { font-family:var(--serif); font-size:12px; color:var(--text3); flex:1; }
     .log-empty { font-family:var(--mono); font-size:10px; color:var(--text3); font-style:italic; }
 
-    .viewer-notice { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:1px; text-align:center; padding:12px; border:1px solid var(--border); border-radius:2px; }
+    /* Log status buttons — per task */
+    .log-status-btns { display:flex; gap:4px; margin-left:4px; flex-shrink:0; }
+    .log-status-btn { background:#1a1a1a; border:1px solid var(--border2); border-radius:2px; width:22px; height:22px; cursor:pointer; font-size:11px; display:flex; align-items:center; justify-content:center; transition:all .15s; padding:0; color:var(--text2); }
+    .log-status-btn:hover { border-color:var(--text3); color:var(--text); }
+    .log-status-btn.active-done { border-color:var(--green); background:#0d1a0d; color:var(--green); }
+    .log-status-btn.active-skip { border-color:#8b7a1a; background:#1a1800; color:#c9b000; }
+    .log-status-btn.active-miss { border-color:var(--red); background:var(--red-dim); color:#c05050; }
 
-    /* Preset modal */
+    .viewer-notice { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:1px; text-align:center; padding:12px; border:1px solid var(--border); border-radius:2px; }
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:500; align-items:center; justify-content:center; padding:20px; }
     .modal-overlay.open { display:flex; }
     .modal-box { background:#141414; border:1px solid var(--border2); border-radius:4px; width:100%; max-width:520px; max-height:85vh; display:flex; flex-direction:column; }
@@ -180,21 +194,17 @@
     .preset-time-sel { background:#161616; border:1px solid var(--border); color:var(--text3); font-family:var(--mono); font-size:10px; padding:3px 5px; border-radius:2px; cursor:pointer; width:60px; }
     .preset-del { background:none; border:none; color:var(--text3); font-size:16px; cursor:pointer; padding:0 2px; flex-shrink:0; }
     .preset-del:hover { color:var(--red); }
+    .emoji-pick-btn { background:#1a1a1a; border:1px solid var(--border2); border-radius:3px; width:28px; height:28px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:border-color .15s; padding:0; color:var(--text3); }
+    .emoji-pick-btn:hover { border-color:var(--amber); }
+    .emoji-picker-popup { position:fixed; z-index:1000; background:#161616; border:1px solid var(--border2); border-radius:4px; padding:8px; display:flex; flex-wrap:wrap; gap:3px; width:272px; box-shadow:0 12px 40px rgba(0,0,0,.9); }
+    .emoji-option { background:none; border:1px solid transparent; border-radius:3px; width:30px; height:30px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:all .1s; padding:0; }
+    .emoji-option:hover { background:#2a2a2a; border-color:var(--border2); }
+    .emoji-option.selected { background:var(--amber-dim); border-color:var(--amber); }
+    .emoji-none { font-size:11px; color:var(--text3); }
     .btn-primary { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:7px 16px; border-radius:2px; cursor:pointer; border:none; background:var(--amber); color:#fff; }
     .btn-secondary { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:7px 16px; border-radius:2px; cursor:pointer; border:1px solid var(--border2); background:none; color:var(--text3); }
     .btn-presets { font-family:var(--mono); font-size:9px; letter-spacing:1.5px; color:var(--text3); background:none; border:1px solid var(--border); padding:5px 12px; border-radius:2px; cursor:pointer; text-transform:uppercase; transition:color .2s,border-color .2s; }
     .btn-presets:hover { color:var(--text2); border-color:var(--border2); }
-
-    /* Log status buttons */
-    .log-status-btns { display:flex; gap:5px; margin-left:auto; flex-shrink:0; }
-    .log-status-btn { background:none; border:1px solid var(--border); border-radius:2px; width:24px; height:24px; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; transition:all .15s; padding:0; }
-    .log-status-btn:hover { border-color:var(--border2); }
-    .log-status-btn.active-done  { border-color:var(--green); background:#0d1a0d; }
-    .log-status-btn.active-skip  { border-color:#8b7a1a; background:#1a1800; }
-    .log-status-btn.active-miss  { border-color:var(--red); background:var(--red-dim); }
-    .log-task-dot.done { background:var(--green); }
-    .log-task-dot.skip { background:#8b7a1a; }
-    .log-task-dot.miss { background:var(--red); }
 
     @media(max-width:640px) {
       main { flex-direction:column; }
@@ -335,48 +345,65 @@ if (window.speechSynthesis) {
 // ═══════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════
 //  PRESETS — stored in localStorage with optional default times
+//  Format: { emoji, name, minutes }
 // ═══════════════════════════════════════════════════════
+const EMOJI_LIST = [
+  '🧹','🛏️','🧺','🧽','🪥','🚽','🚿','🪞','🗑️','🍽️','🔥','📦','❄️','🚪','🪣',
+  '🛋️','👕','👗','🗂️','💡','🪟','♻️','📺','🧴','🧻','🪠','🧲','🪴','🌿','💧',
+  '🏠','🔑','📋','⏰','✅','⭐','🎯','🔧','🔨','🪑','🛒','📁','🗃️','🧯','🪤',
+];
+
 const DEFAULT_PRESETS = [
-  {name:'Vacuum living room',   minutes:15},
-  {name:'Vacuum bedroom',       minutes:15},
-  {name:'Mop kitchen floor',    minutes:15},
-  {name:'Wipe countertops',     minutes:10},
-  {name:'Clean bathroom sink',  minutes:10},
-  {name:'Scrub toilet',         minutes:10},
-  {name:'Clean shower / tub',   minutes:20},
-  {name:'Wipe bathroom mirror', minutes:5},
-  {name:'Take out trash',       minutes:5},
-  {name:'Empty dishwasher',     minutes:10},
-  {name:'Load dishwasher',      minutes:10},
-  {name:'Wipe stovetop',        minutes:10},
-  {name:'Clean microwave',      minutes:10},
-  {name:'Wipe down fridge',     minutes:10},
-  {name:'Sweep entryway',       minutes:10},
-  {name:'Dust surfaces',        minutes:15},
-  {name:'Change bed sheets',    minutes:15},
-  {name:'Do laundry',           minutes:10},
-  {name:'Fold & put away clothes', minutes:20},
-  {name:'Organize desk',        minutes:15},
-  {name:'Clear clutter — living room', minutes:15},
-  {name:'Clear clutter — bedroom',     minutes:15},
-  {name:'Wipe light switches & handles', minutes:5},
-  {name:'Clean windows / glass doors',   minutes:15},
-  {name:'Take recycling out',   minutes:5},
-  {name:'Vacuum sofa',          minutes:10},
-  {name:'Wipe TV & electronics',minutes:10},
+  {emoji:'🧹', name:'Vacuum living room',       minutes:15},
+  {emoji:'🛏️', name:'Vacuum bedroom',           minutes:15},
+  {emoji:'🧺', name:'Mop kitchen floor',        minutes:15},
+  {emoji:'🧽', name:'Wipe countertops',         minutes:10},
+  {emoji:'🪥', name:'Clean bathroom sink',      minutes:10},
+  {emoji:'🚽', name:'Scrub toilet',             minutes:10},
+  {emoji:'🚿', name:'Clean shower / tub',       minutes:20},
+  {emoji:'🪞', name:'Wipe bathroom mirror',     minutes:5},
+  {emoji:'🗑️', name:'Take out trash',           minutes:5},
+  {emoji:'🍽️', name:'Empty dishwasher',         minutes:10},
+  {emoji:'🍽️', name:'Load dishwasher',          minutes:10},
+  {emoji:'🔥', name:'Wipe stovetop',            minutes:10},
+  {emoji:'📦', name:'Clean microwave',          minutes:10},
+  {emoji:'❄️', name:'Wipe down fridge',         minutes:10},
+  {emoji:'🚪', name:'Sweep entryway',           minutes:10},
+  {emoji:'🪣', name:'Dust surfaces',            minutes:15},
+  {emoji:'🛏️', name:'Change bed sheets',        minutes:15},
+  {emoji:'👕', name:'Do laundry',               minutes:10},
+  {emoji:'👗', name:'Fold & put away clothes',  minutes:20},
+  {emoji:'🗂️', name:'Organize desk',            minutes:15},
+  {emoji:'🛋️', name:'Clear clutter — living room', minutes:15},
+  {emoji:'🛏️', name:'Clear clutter — bedroom',  minutes:15},
+  {emoji:'💡', name:'Wipe light switches & handles', minutes:5},
+  {emoji:'🪟', name:'Clean windows / glass doors',  minutes:15},
+  {emoji:'♻️', name:'Take recycling out',       minutes:5},
+  {emoji:'🛋️', name:'Vacuum sofa',              minutes:10},
+  {emoji:'📺', name:'Wipe TV & electronics',    minutes:10},
 ];
 const TIME_OPTS = [0,5,10,15,20,25,30,35,40];
 
 function getPresets() {
-  try { const s = localStorage.getItem('pomo_presets'); return s ? JSON.parse(s) : DEFAULT_PRESETS; }
-  catch { return DEFAULT_PRESETS; }
+  try {
+    const s = localStorage.getItem('pomo_presets');
+    if (!s) return DEFAULT_PRESETS;
+    // Migrate old format (emoji embedded in name) to new {emoji, name} format
+    return JSON.parse(s).map(p => {
+      if (!p.emoji) {
+        const m = p.name.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*/u);
+        if (m) return {...p, emoji: m[1], name: p.name.slice(m[0].length)};
+        return {...p, emoji: ''};
+      }
+      return p;
+    });
+  } catch { return DEFAULT_PRESETS; }
 }
 function savePresets(list) {
   try { localStorage.setItem('pomo_presets', JSON.stringify(list)); } catch {}
 }
-function getPresetByName(name) {
-  return getPresets().find(p => p.name.toLowerCase() === name.toLowerCase()) || null;
-}
+// Display string for a preset in dropdown/block (emoji + name)
+function presetDisplay(p) { return p.emoji ? p.emoji + ' ' + p.name : p.name; }
 
 // history kept for backward compat but not shown in dropdown
 function getHistory() { try { return JSON.parse(localStorage.getItem('pomo_history')||'[]'); } catch { return []; } }
@@ -386,10 +413,10 @@ function pushHistory(v) {}
 //  STATE
 // ═══════════════════════════════════════════════════════
 const ZONES = [
-  {name:'Computer', duration:1, icon:'💻'},
-  {name:'Bed Area',  duration:1, icon:'🛏️'},
-  {name:'Bathroom',  duration:1, icon:'🚿'},
-  {name:'Kitchen',   duration:1, icon:'🍳'},
+  {name:'Computer Area', duration:1, icon:'💻'},
+  {name:'Bedroom Area',  duration:1, icon:'🛏️'},
+  {name:'Bathroom',      duration:1, icon:'🚿'},
+  {name:'Kitchen Area',  duration:1, icon:'🍳'},
 ];
 const ZONE_BOUNDS = [0,60,120,180,240];
 const MINI_TOTAL = 240; // must match server MINI_DUR (4 min test / 600 prod)
@@ -591,31 +618,32 @@ function renderBlocks() {
   c.innerHTML = '';
 
   const completed = state.completedBlocks || [];
-  // Sort: active/pending first (in order), then done ones
   const order = [...state.blocks.keys()].sort((a, b) => {
     const aDone = completed.includes(a), bDone = completed.includes(b);
     if (aDone === bDone) return a - b;
     return aDone ? 1 : -1;
   });
 
-  order.forEach((idx, rank) => {
-    const block = state.blocks[idx];
+  order.forEach((idx) => {
+    const block   = state.blocks[idx];
     const isActive  = state.activeBlock===idx && (state.phase==='mini'||state.phase==='task');
     const isDone    = completed.includes(idx);
     const isRunning = state.running;
-    // "Main Work" = the first non-done block rank-wise
-    const firstPending = order.find(i => !completed.includes(i));
-    const isMain = !isDone && idx === firstPending;
-    const label  = isDone ? '✓ Completed' : isActive ? '● Active' : isMain ? 'Main Work' : 'Preview';
+    const statusLabel = isDone ? '✓ Completed' : isActive ? '● Active' : `Block ${idx+1}`;
+
+    // 35-min validation
+    const totalMins = (block.tasks||[]).reduce((s,t) => s + (Number(t.minutes)||0), 0);
+    const needsTime = isOwner && !isDone && totalMins > 0 && totalMins < 35;
+
     const startBtn = isOwner && !isDone && !isRunning && state.phase==='idle'
-      ? `<button class="btn-start ${isMain?'primary':''}" onclick="doStart(${idx})">Start →</button>` : '';
+      ? `<button class="btn-start primary" onclick="doStart(${idx})">Start →</button>` : '';
 
     const card = document.createElement('div');
     card.className = 'block-card'+(isActive?' active':isDone?' done':'');
     card.innerHTML = `
       <div class="block-header">
         <div style="flex:1;min-width:0">
-          <div class="block-status">${label}</div>
+          <div class="block-status">${statusLabel}</div>
           ${isOwner
             ? `<input class="block-title-input" value="${esc(block.label)}" placeholder="Block title…"
                 oninput="state.blocks[${idx}].label=this.value;scheduleBlockSave(${idx});" />`
@@ -623,8 +651,9 @@ function renderBlocks() {
         </div>
         ${startBtn}
       </div>
+      ${needsTime ? `<div class="time-warning">⚠ Set 35 min of tasks (currently ${totalMins}m)</div>` : ''}
       <div class="task-list" id="tl-${idx}"></div>
-      ${isOwner && block.tasks.length < 3
+      ${isOwner && (block.tasks||[]).length < 5
         ? `<button class="btn-add" onclick="addTask(${idx})">+ add task</button>` : ''}
     `;
     c.appendChild(card);
@@ -661,7 +690,7 @@ function renderTaskList(bi) {
   list.appendChild(mr);
 
   // Task rows
-  const ph = ['Main task…','Secondary task…','Optional task…'];
+  const ph = ['Main task…','Secondary task…','Optional task…','Task 4…','Task 5…'];
   (block.tasks || []).forEach((task, ti) => {
     // Normalize: tasks can be strings (legacy) or {text, minutes} objects
     const taskText = task && typeof task === 'object' ? (task.text || '') : String(task || '');
@@ -845,14 +874,14 @@ function renderTimerPanel() {
   }
 }
 
-// Log status stored locally: { [entryKey]: 'done'|'skip'|'miss' }
+// Log status stored per task: { [taskKey]: 'done'|'skip'|'miss' }
 function getLogStatuses() { try { return JSON.parse(localStorage.getItem('pomo_log_status')||'{}'); } catch { return {}; } }
 function setLogStatus(key, val) {
   const s = getLogStatuses(); s[key] = val;
   try { localStorage.setItem('pomo_log_status', JSON.stringify(s)); } catch {}
   renderLog();
 }
-function logKey(entry) { return entry.completedAt + '_' + (entry.blockLabel||''); }
+function taskKey(entry, ti) { return entry.completedAt + '_' + ti; }
 
 function renderLog() {
   const el = document.getElementById('log-entries');
@@ -861,32 +890,44 @@ function renderLog() {
   clearBtn.style.display = (isOwner && log.length) ? 'block' : 'none';
   if (!log.length) { el.innerHTML = '<div class="log-empty">No completed blocks yet.</div>'; return; }
   const statuses = getLogStatuses();
+  // Session start time: track when page loaded or last reset — use first entry's completedAt as ref
+  // "Active" entries = those in current server log (not yet reset). All are editable until reset.
   el.innerHTML = '';
-  [...log].reverse().forEach(entry => {
-    const key    = logKey(entry);
-    const status = statuses[key] || 'done'; // default green
-    const dotCls = status; // 'done' | 'skip' | 'miss'
+  [...log].reverse().forEach((entry, ri) => {
     const div = document.createElement('div');
     div.className = 'log-entry';
     const dt = new Date(entry.completedAt * 1000);
     const timeStr = dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
     const dateStr = dt.toLocaleDateString([], {month:'short',day:'numeric'});
-    const taskHTML = (entry.tasks||[]).length
-      ? (entry.tasks||[]).map(t => {
-          const text = typeof t==='string'?t:t.text;
-          const mins = typeof t==='object'?t.minutes:0;
-          return `<div class="log-task"><div class="log-task-dot ${dotCls}"></div><span class="log-task-text">${esc(text)}${mins?` <span style="color:var(--text3)">(${mins}m)</span>`:''}</span></div>`;
-        }).join('')
-      : '<span class="log-task-text" style="font-style:italic;color:var(--text3)">No tasks recorded</span>';
+    const tasks = entry.tasks || [];
+    let taskHTML = '';
+    if (!tasks.length) {
+      taskHTML = '<span class="log-task-text" style="font-style:italic;color:var(--text3)">No tasks recorded</span>';
+    } else {
+      taskHTML = tasks.map((t, ti) => {
+        const text   = typeof t==='string' ? t : t.text;
+        const mins   = typeof t==='object' ? t.minutes : 0;
+        const key    = taskKey(entry, ti);
+        const status = statuses[key] || 'done';
+        const dotColor = status==='done' ? 'var(--green)' : status==='skip' ? '#8b7a1a' : 'var(--red)';
+        // Show buttons for all current session entries (owner only)
+        const btns = isOwner ? `<div class="log-status-btns">
+          <button class="log-status-btn ${status==='done'?'active-done':''}" title="Completed" onmousedown="event.stopPropagation()" onclick="setLogStatus('${key}','done')">✓</button>
+          <button class="log-status-btn ${status==='skip'?'active-skip':''}" title="Partial"   onmousedown="event.stopPropagation()" onclick="setLogStatus('${key}','skip')">♻</button>
+          <button class="log-status-btn ${status==='miss'?'active-miss':''}" title="Missed"    onmousedown="event.stopPropagation()" onclick="setLogStatus('${key}','miss')">✕</button>
+        </div>` : '';
+        return `
+          <div class="log-task">
+            <div class="log-task-dot" style="background:${dotColor}"></div>
+            <span class="log-task-text">${esc(text)}${mins?` <span style="color:var(--text3)">(${mins}m)</span>`:''}</span>
+            ${btns}
+          </div>`;
+      }).join('');
+    }
     div.innerHTML = `
       <div class="log-entry-header">
         <span class="log-entry-label">${esc(entry.blockLabel||'Block')}</span>
         <span class="log-entry-time">${dateStr} · ${timeStr}</span>
-        ${isOwner ? `<div class="log-status-btns">
-          <button class="log-status-btn ${status==='done'?'active-done':''}" title="Completed" onclick="setLogStatus('${key}','done')">✓</button>
-          <button class="log-status-btn ${status==='skip'?'active-skip':''}" title="Partial" onclick="setLogStatus('${key}','skip')">♻</button>
-          <button class="log-status-btn ${status==='miss'?'active-miss':''}" title="Missed" onclick="setLogStatus('${key}','miss')">✕</button>
-        </div>` : ''}
       </div>
       <div class="log-entry-tasks">${taskHTML}</div>
     `;
@@ -928,7 +969,7 @@ function onTimeChange(bi, ti, mins) {
   });
 }
 function addTask(bi) {
-  if (state.blocks[bi].tasks.length >= 3) return;
+  if (state.blocks[bi].tasks.length >= 5) return;
   // Cancel any pending debounced save to avoid it overwriting our add
   clearTimeout(saveTimers[bi]);
   state.blocks[bi].tasks.push({ text: '', minutes: 0 });
@@ -978,7 +1019,7 @@ function closeAllDD() {
 function buildDD(bi, ti, query) {
   const dd = document.getElementById(`dd-${bi}-${ti}`); if(!dd) return;
   const q = query.trim().toLowerCase();
-  const presets = getPresets().filter(p => !q || p.name.toLowerCase().includes(q));
+  const presets = getPresets().filter(p => !q || p.name.toLowerCase().includes(q) || (p.emoji && q.includes(p.emoji)));
   dd.innerHTML = '';
   if (!presets.length) { dd.innerHTML=`<div class="dd-empty">No matches</div>`; return; }
   presets.forEach(p => {
@@ -986,8 +1027,8 @@ function buildDD(bi, ti, query) {
     d.className = 'dd-item';
     const timeLabel = p.minutes ? `<span style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto;padding-left:8px">${p.minutes}m</span>` : '';
     d.style.cssText = 'display:flex;align-items:center';
-    d.innerHTML = `<span style="flex:1">${esc(p.name)}</span>${timeLabel}`;
-    d.onmousedown = e => { e.preventDefault(); e.stopPropagation(); pick(bi,ti,p.name,p.minutes); };
+    d.innerHTML = `<span style="flex:1">${p.emoji ? `<span style="margin-right:6px">${p.emoji}</span>` : ''}${esc(p.name)}</span>${timeLabel}`;
+    d.onmousedown = e => { e.preventDefault(); e.stopPropagation(); pick(bi, ti, presetDisplay(p), p.minutes); };
     dd.appendChild(d);
   });
 }
@@ -1038,6 +1079,7 @@ function pick(bi, ti, val, presetMins) {
 //  PRESET MODAL
 // ═══════════════════════════════════════════════════════
 let _editPresets = [];
+let _emojiPickerIdx = null; // which row's emoji picker is open
 
 function openPresetsModal() {
   _editPresets = getPresets().map(p => ({...p}));
@@ -1045,6 +1087,7 @@ function openPresetsModal() {
   document.getElementById('presets-modal').classList.add('open');
 }
 function closePresetsModal() {
+  closeEmojiPicker();
   document.getElementById('presets-modal').classList.remove('open');
 }
 function renderPresetRows() {
@@ -1053,28 +1096,75 @@ function renderPresetRows() {
   _editPresets.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'preset-row';
+    row.id = `prow-${i}`;
     const timeOpts = TIME_OPTS.map(m =>
       `<option value="${m}" ${p.minutes===m?'selected':''}>${m===0?'—':m+'m'}</option>`
     ).join('');
+    const emojiDisplay = p.emoji || '＋';
     row.innerHTML = `
       <span style="font-family:var(--mono);font-size:10px;color:var(--text3);width:18px;flex-shrink:0">${i+1}</span>
+      <button class="emoji-pick-btn" id="epbtn-${i}" title="Pick emoji"
+        onmousedown="event.preventDefault();event.stopPropagation();toggleEmojiPicker(${i})">${emojiDisplay}</button>
       <input class="preset-name-inp" value="${esc(p.name)}" placeholder="Task name…"
         oninput="_editPresets[${i}].name=this.value" />
       <select class="preset-time-sel" onchange="_editPresets[${i}].minutes=Number(this.value)">${timeOpts}</select>
-      <button class="preset-del" onclick="_editPresets.splice(${i},1);renderPresetRows()">×</button>
+      <button class="preset-del" onmousedown="event.preventDefault();_editPresets.splice(${i},1);renderPresetRows()">×</button>
     `;
     body.appendChild(row);
   });
 }
+
+function toggleEmojiPicker(idx) {
+  if (_emojiPickerIdx === idx) { closeEmojiPicker(); return; }
+  closeEmojiPicker();
+  _emojiPickerIdx = idx;
+  const btn = document.getElementById(`epbtn-${idx}`);
+  if (!btn) return;
+  // Build picker
+  const picker = document.createElement('div');
+  picker.id = 'emoji-picker-popup';
+  picker.className = 'emoji-picker-popup';
+  EMOJI_LIST.forEach(em => {
+    const b = document.createElement('button');
+    b.className = 'emoji-option' + (em === (_editPresets[idx].emoji||'') ? ' selected' : '');
+    b.textContent = em;
+    b.onmousedown = e => { e.preventDefault(); e.stopPropagation(); _editPresets[idx].emoji = em; closeEmojiPicker(); renderPresetRows(); };
+    picker.appendChild(b);
+  });
+  // Add "none" option
+  const none = document.createElement('button');
+  none.className = 'emoji-option emoji-none';
+  none.textContent = '✕';
+  none.title = 'No emoji';
+  none.onmousedown = e => { e.preventDefault(); e.stopPropagation(); _editPresets[idx].emoji = ''; closeEmojiPicker(); renderPresetRows(); };
+  picker.appendChild(none);
+  // Position below button
+  document.body.appendChild(picker);
+  const rect = btn.getBoundingClientRect();
+  picker.style.top  = (rect.bottom + 4) + 'px';
+  picker.style.left = Math.min(rect.left, window.innerWidth - 280) + 'px';
+}
+function closeEmojiPicker() {
+  _emojiPickerIdx = null;
+  const p = document.getElementById('emoji-picker-popup');
+  if (p) p.remove();
+}
+// Close emoji picker on outside click
+document.addEventListener('mousedown', e => {
+  if (_emojiPickerIdx !== null) {
+    const p = document.getElementById('emoji-picker-popup');
+    const btn = document.getElementById(`epbtn-${_emojiPickerIdx}`);
+    if (p && !p.contains(e.target) && e.target !== btn) closeEmojiPicker();
+  }
+}, true);
+
 function addPresetRow() {
-  _editPresets.push({name:'', minutes:0});
+  _editPresets.push({emoji:'', name:'', minutes:0});
   renderPresetRows();
-  // Focus the new input
   const inputs = document.querySelectorAll('.preset-name-inp');
   if (inputs.length) inputs[inputs.length-1].focus();
 }
 function savePresetsModal() {
-  // Filter out blanks
   const cleaned = _editPresets.filter(p => p.name.trim());
   savePresets(cleaned);
   closePresetsModal();
