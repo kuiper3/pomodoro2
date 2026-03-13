@@ -100,10 +100,19 @@
     .btn-add:disabled { cursor:default; opacity:.4; }
     .btn-add-block { width:100%; font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text3); background:none; border:1px dashed var(--border2); border-radius:3px; padding:12px; cursor:pointer; text-align:center; transition:all .2s; margin-top:4px; }
     .btn-add-block:hover { color:var(--text2); border-color:var(--amber); }
-    .time-warning { font-family:var(--mono); font-size:10px; color:#c05050; letter-spacing:1px; padding:6px 0 2px; animation:shake .4s ease; }
-    .time-chip { font-family:var(--mono); font-size:13px; font-weight:500; letter-spacing:1px; border-radius:3px; padding:3px 10px; margin-left:10px; vertical-align:middle; }
+    .time-chip { font-family:var(--mono); font-size:14px; font-weight:500; letter-spacing:1px; border-radius:3px; padding:4px 12px; margin-left:12px; vertical-align:middle; }
+    .time-warning-msg { font-family:var(--mono); font-size:12px; letter-spacing:.5px; padding:8px 0 4px; }
     .btn-set-log { font-family:var(--mono); font-size:9px; letter-spacing:1.5px; color:#9b70c0; background:none; border:1px solid #7a52a0; padding:4px 10px; border-radius:2px; cursor:pointer; text-transform:uppercase; transition:all .2s; }
     .btn-set-log:hover { color:#b898d8; border-color:#9b70c0; }
+    @keyframes shake {
+      0%,100% { transform:translateX(0); }
+      15% { transform:translateX(-6px); }
+      30% { transform:translateX(6px); }
+      45% { transform:translateX(-5px); }
+      60% { transform:translateX(5px); }
+      75% { transform:translateX(-3px); }
+      90% { transform:translateX(3px); }
+    }
     @keyframes shake {
       0%,100% { transform:translateX(0); }
       20% { transform:translateX(-5px); }
@@ -203,13 +212,13 @@
     .preset-del:hover { color:var(--red); }
     .emoji-pick-btn { background:#1a1a1a; border:1px solid var(--border2); border-radius:3px; width:28px; height:28px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:border-color .15s; padding:0; color:var(--text3); }
     .emoji-pick-btn:hover { border-color:var(--amber); }
-    .emoji-picker-popup { position:fixed; z-index:1000; background:#161616; border:1px solid var(--border2); border-radius:4px; width:292px; box-shadow:0 12px 40px rgba(0,0,0,.9); overflow:hidden; }
-    .emoji-tabs { display:flex; gap:2px; padding:6px 6px 0; border-bottom:1px solid var(--border); overflow-x:auto; }
-    .emoji-tab { background:none; border:none; border-radius:3px 3px 0 0; padding:5px 7px; cursor:pointer; font-size:15px; color:var(--text3); transition:all .12s; flex-shrink:0; }
-    .emoji-tab:hover { background:#222; }
-    .emoji-tab.active { background:var(--bg2); color:var(--text); border-bottom:2px solid var(--amber); }
-    .emoji-grid { display:flex; flex-wrap:wrap; gap:2px; padding:8px; max-height:170px; overflow-y:auto; }
-    .emoji-option { background:none; border:1px solid transparent; border-radius:3px; width:32px; height:32px; cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center; transition:all .1s; padding:0; }
+    .emoji-picker-popup { position:fixed; z-index:1000; background:#161616; border:1px solid var(--border2); border-radius:4px; width:292px; max-height:360px; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,.9); scrollbar-width:thin; scrollbar-color:var(--border2) transparent; }
+    .emoji-picker-popup::-webkit-scrollbar { width:6px; }
+    .emoji-picker-popup::-webkit-scrollbar-track { background:transparent; }
+    .emoji-picker-popup::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+    .emoji-cat-label { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--text3); padding:8px 10px 4px; border-bottom:1px solid var(--border); position:sticky; top:0; background:#161616; }
+    .emoji-grid { display:flex; flex-wrap:wrap; gap:2px; padding:6px 8px; }
+    .emoji-option { background:none; border:1px solid transparent; border-radius:3px; width:32px; height:32px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; transition:all .1s; padding:0; }
     .emoji-option:hover { background:#2a2a2a; border-color:var(--border2); }
     .emoji-option.selected { background:var(--amber-dim); border-color:var(--amber); }
     .emoji-none { font-size:11px; color:var(--text3); }
@@ -566,29 +575,32 @@ async function ownerPost(action, body={}) {
 }
 
 function doStart(bi) {
-  // Validate: if any task times set, total should be ~35min
   const block = state.blocks[bi];
   const totalMins = (block.tasks||[]).reduce((s,t) => s + (Number(t.minutes)||0), 0);
+  // Block start if tasks are set but don't total 35min
   if (totalMins > 0 && totalMins !== 35) {
-    // Show shake warning on the card
     const card = document.querySelector(`.block-card[data-block-idx="${bi}"]`);
     if (card) {
-      let warn = card.querySelector('.time-warning');
+      // Shake the whole card
+      card.style.animation = 'none';
+      card.offsetHeight;
+      card.style.animation = 'shake .5s ease';
+      setTimeout(() => { card.style.animation = ''; }, 600);
+      // Show/update warning message
+      let warn = card.querySelector('.time-warning-msg');
       if (!warn) {
         warn = document.createElement('div');
-        warn.className = 'time-warning';
+        warn.className = 'time-warning-msg';
         card.querySelector('.block-header').after(warn);
       }
       const color = totalMins < 35 ? '#c05050' : '#9b6fc0';
       warn.style.color = color;
-      warn.textContent = `⚠ Tasks = ${totalMins}m — aim for 35m (45m total with mini loop)`;
-      warn.style.animation = 'none';
-      warn.offsetHeight; // reflow to restart animation
-      warn.style.animation = 'shake .4s ease';
-      // Remove after 4s
-      setTimeout(() => warn && warn.remove(), 4000);
+      warn.textContent = totalMins < 35
+        ? `⚠ Only ${totalMins}m set — need 35m of tasks for a full 45m block`
+        : `⚠ ${totalMins}m exceeds 35m target — consider trimming tasks`;
+      setTimeout(() => { if (warn.parentNode) warn.remove(); }, 5000);
     }
-    // Still allow start — just warn
+    return; // BLOCK the start
   }
   ownerPost('start', { blockIndex: bi }).then(() => {
     setTimeout(() => {
@@ -711,8 +723,8 @@ function renderBlocks() {
     const TARGET = 35;
     let timeChip = '';
     if (isOwner && !isDone && totalMins > 0) {
-      const color = totalMins < TARGET ? '#c05050' : totalMins === TARGET ? 'var(--green)' : '#9b6fc0';
-      timeChip = `<span class="time-chip" data-bi="${idx}" style="font-family:var(--mono);font-size:10px;color:${color};border:1px solid ${color};border-radius:2px;padding:2px 7px;margin-left:8px">${totalMins}m / ${TARGET}m</span>`;
+      const color = totalMins < TARGET ? '#c05050' : totalMins === TARGET ? '#5a8b5a' : '#9b6fc0';
+      timeChip = `<span class="time-chip" data-bi="${idx}" style="color:${color};border:1px solid ${color}">${totalMins}m / ${TARGET}m</span>`;
     }
 
     const card = document.createElement('div');
@@ -740,12 +752,12 @@ function renderBlocks() {
     renderTaskList(idx);
   });
 
-  // Add New Block button — at top if any completed, bottom otherwise
-  if (isOwner && state.phase === 'idle') {
+  // Add New Block button — always show when idle (owner only), even after all blocks done
+  if (isOwner) {
     const addBlockBtn = document.createElement('button');
     addBlockBtn.className = 'btn-add-block';
+    addBlockBtn.setAttribute('data-add-block', '1');
     addBlockBtn.textContent = '+ Add New Block';
-    addBlockBtn.onclick = doAddBlock;
     c.appendChild(addBlockBtn);
   }
 
@@ -763,6 +775,8 @@ document.addEventListener('click', e => {
   if (startBtn) { doStart(Number(startBtn.dataset.start)); return; }
   const addBtn = e.target.closest('[data-add]');
   if (addBtn) { addTask(Number(addBtn.dataset.add)); return; }
+  const addBlockBtn = e.target.closest('[data-add-block]');
+  if (addBlockBtn) { doAddBlock(); return; }
 });
 
 function renderTaskList(bi) {
@@ -806,8 +820,9 @@ function renderTaskList(bi) {
           <input class="task-input" id="inp-${bi}-${ti}"
             value="${esc(taskText)}" placeholder="${ph[ti]||'Task…'}" autocomplete="off"
             oninput="onTaskInput(${bi},${ti},this.value)"
-            onchange="onTaskSave(${bi},${ti},this.value)" />
-          <span class="task-dd-arrow" onmousedown="event.preventDefault();toggleDD(${bi},${ti})">▾</span>
+            onchange="onTaskSave(${bi},${ti},this.value)"
+            onfocus="openDD(${bi},${ti})" />
+          <span class="task-dd-arrow" onmousedown="event.preventDefault();event.stopPropagation();toggleDD(${bi},${ti})">▾</span>
           <div class="task-dropdown" id="dd-${bi}-${ti}"></div>
         </div>
         <select class="time-select" title="Task duration"
@@ -1248,67 +1263,80 @@ function toggleEmojiPicker(idx) {
 }
 
 function buildEmojiPicker(idx, btn) {
+  // Remove existing
+  const old = document.getElementById('emoji-picker-popup');
+  if (old) old.remove();
+
   const picker = document.createElement('div');
   picker.id = 'emoji-picker-popup';
   picker.className = 'emoji-picker-popup';
 
-  // Tab bar
-  const tabs = document.createElement('div');
-  tabs.className = 'emoji-tabs';
-  EMOJI_CATS.forEach((cat, ci) => {
-    const t = document.createElement('button');
-    t.className = 'emoji-tab' + (ci === _emojiActiveCat ? ' active' : '');
-    t.title = cat.label;
-    t.textContent = cat.label.split(' ')[0]; // just the emoji part
-    t.onmousedown = e => { e.preventDefault(); e.stopPropagation(); _emojiActiveCat = ci; buildEmojiPicker(idx, btn); };
-    tabs.appendChild(t);
-  });
-  picker.appendChild(tabs);
+  // All categories in one scrollable list
+  EMOJI_CATS.forEach(cat => {
+    const label = document.createElement('div');
+    label.className = 'emoji-cat-label';
+    label.textContent = cat.label;
+    picker.appendChild(label);
 
-  // Grid
-  const grid = document.createElement('div');
-  grid.className = 'emoji-grid';
-  const currentCat = EMOJI_CATS[_emojiActiveCat];
-  currentCat.emojis.forEach(em => {
-    const b = document.createElement('button');
-    b.className = 'emoji-option' + (em === (_editPresets[idx]?.emoji||'') ? ' selected' : '');
-    b.textContent = em;
-    b.onmousedown = e => { e.preventDefault(); e.stopPropagation(); _editPresets[idx].emoji = em; closeEmojiPicker(); renderPresetRows(); };
-    grid.appendChild(b);
+    const grid = document.createElement('div');
+    grid.className = 'emoji-grid';
+    cat.emojis.forEach(em => {
+      const b = document.createElement('button');
+      b.className = 'emoji-option' + (em === (_editPresets[idx]?.emoji||'') ? ' selected' : '');
+      b.textContent = em;
+      b.onmousedown = e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (_editPresets[idx]) _editPresets[idx].emoji = em;
+        closeEmojiPicker();
+        renderPresetRows();
+      };
+      grid.appendChild(b);
+    });
+    picker.appendChild(grid);
   });
-  // No-emoji option
+
+  // No-emoji option at bottom
+  const footer = document.createElement('div');
+  footer.style.cssText = 'padding:6px 8px;border-top:1px solid var(--border)';
   const none = document.createElement('button');
   none.className = 'emoji-option emoji-none';
-  none.textContent = '✕';
-  none.title = 'No emoji';
-  none.onmousedown = e => { e.preventDefault(); e.stopPropagation(); _editPresets[idx].emoji = ''; closeEmojiPicker(); renderPresetRows(); };
-  grid.appendChild(none);
-  picker.appendChild(grid);
+  none.style.cssText = 'width:auto;padding:4px 12px;font-size:11px;color:var(--text3)';
+  none.textContent = '✕ No emoji';
+  none.onmousedown = e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (_editPresets[idx]) _editPresets[idx].emoji = '';
+    closeEmojiPicker();
+    renderPresetRows();
+  };
+  footer.appendChild(none);
+  picker.appendChild(footer);
 
   document.body.appendChild(picker);
 
-  // Smart position — flip above if near bottom
+  // Smart position
   const rect = btn.getBoundingClientRect();
-  const pickerH = 220; // approx
-  const pickerW = 288;
+  const pickerH = 340;
+  const pickerW = 292;
   const spaceBelow = window.innerHeight - rect.bottom;
   const top = spaceBelow < pickerH + 8 ? Math.max(8, rect.top - pickerH - 4) : rect.bottom + 4;
   const left = Math.min(Math.max(8, rect.left), window.innerWidth - pickerW - 8);
   picker.style.top  = top + 'px';
   picker.style.left = left + 'px';
 }
+
 function closeEmojiPicker() {
   _emojiPickerIdx = null;
   const p = document.getElementById('emoji-picker-popup');
   if (p) p.remove();
 }
-// Close emoji picker on outside click
+// Close emoji picker on outside mousedown
 document.addEventListener('mousedown', e => {
-  if (_emojiPickerIdx !== null) {
-    const p = document.getElementById('emoji-picker-popup');
-    const btn = document.getElementById(`epbtn-${_emojiPickerIdx}`);
-    if (p && !p.contains(e.target) && e.target !== btn) closeEmojiPicker();
-  }
+  if (_emojiPickerIdx === null) return;
+  const p = document.getElementById('emoji-picker-popup');
+  const btn = document.getElementById(`epbtn-${_emojiPickerIdx}`);
+  if (p && !p.contains(e.target) && btn && !btn.contains(e.target)) closeEmojiPicker();
 }, true);
 
 function addPresetRow() {
