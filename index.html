@@ -215,13 +215,7 @@
       </div>
       <div id="idle-section">
         <div class="panel-label" style="margin-bottom:12px">Structure</div>
-        <div class="structure-list">
-          <div class="structure-row"><div class="structure-left"><div class="structure-dot" style="background:var(--amber)"></div><span class="structure-name">Mini Loop</span></div><span class="structure-time">10 min</span></div>
-          <div class="structure-row"><div class="structure-left"><div class="structure-dot" style="background:var(--green)"></div><span class="structure-name">Focus Work</span></div><span class="structure-time">35 min</span></div>
-          <div class="structure-row"><div class="structure-left"><div class="structure-dot" style="background:var(--blue)"></div><span class="structure-name">Break</span></div><span class="structure-time">15 min</span></div>
-          <hr class="structure-divider">
-          <div class="structure-row"><span class="structure-name" style="color:var(--text3)">Total</span><span class="structure-time">60 min</span></div>
-        </div>
+        <div class="structure-list" id="structure-list"></div>
       </div>
       <div id="active-tasks-section" style="display:none">
         <div class="panel-label" style="margin-bottom:10px" id="active-block-label">Block 1</div>
@@ -323,7 +317,7 @@ const ZONES = [
   {name:'Kitchen',   duration:1, icon:'🍳'},
 ];
 const ZONE_BOUNDS = [0,60,120,180,240];
-const MINI_TOTAL = 240; // 4 min for testing
+const MINI_TOTAL = 240; // must match server MINI_DUR (4 min test / 600 prod)
 
 let state      = null;
 let ownerToken = null;
@@ -443,14 +437,13 @@ function doToggleMini(bi) { ownerPost('toggle_mini', { blockIndex: bi }); }
 function doClearLog()     { if (confirm('Clear completed log?')) ownerPost('clear_log'); }
 
 function scheduleBlockSave(bi) {
+  // Snapshot immediately so later mutations don't corrupt the pending save
+  const label    = state.blocks[bi].label;
+  const tasks    = JSON.parse(JSON.stringify(state.blocks[bi].tasks));
+  const miniLoop = state.miniLoop[bi];
   clearTimeout(saveTimers[bi]);
   saveTimers[bi] = setTimeout(() => {
-    ownerPost('update_block', {
-      blockIndex: bi,
-      label: state.blocks[bi].label,
-      tasks: state.blocks[bi].tasks,
-      miniLoop: state.miniLoop[bi],
-    });
+    ownerPost('update_block', { blockIndex: bi, label, tasks, miniLoop });
   }, SAVE_DELAY);
 }
 
@@ -638,6 +631,25 @@ function renderTimerPanel() {
   document.getElementById('idle-section').style.display        = phase==='idle'  ?'block':'none';
   document.getElementById('active-tasks-section').style.display= (phase==='task'||phase==='mini')?'block':'none';
 
+  if (phase === 'idle') {
+    const sl = document.getElementById('structure-list');
+    if (sl) {
+      const nextBlock = state.blocks[state.activeBlock] || state.blocks[0];
+      const taskSecs = getTaskDurFromState();
+      const taskMins = Math.round(taskSecs / 60);
+      const miniMins = Math.round(MINI_TOTAL / 60);
+      const totalMins = miniMins + taskMins + 15;
+      const useMini = state.miniLoop[state.activeBlock] !== false;
+      sl.innerHTML = `
+        ${useMini ? `<div class="structure-row"><div class="structure-left"><div class="structure-dot" style="background:var(--amber)"></div><span class="structure-name">Mini Loop</span></div><span class="structure-time">${miniMins} min</span></div>` : ''}
+        <div class="structure-row"><div class="structure-left"><div class="structure-dot" style="background:var(--green)"></div><span class="structure-name">Focus Work</span></div><span class="structure-time">${taskMins} min</span></div>
+        <div class="structure-row"><div class="structure-left"><div class="structure-dot" style="background:var(--blue)"></div><span class="structure-name">Break</span></div><span class="structure-time">15 min</span></div>
+        <hr class="structure-divider">
+        <div class="structure-row"><span class="structure-name" style="color:var(--text3)">Total</span><span class="structure-time">${useMini ? totalMins : taskMins + 15} min</span></div>
+      `;
+    }
+  }
+
   if (phase==='mini') {
     const zi = getZone(state.elapsed);
     const zl = document.getElementById('zone-list');
@@ -740,12 +752,25 @@ function onTimeChange(bi, ti, mins) {
 }
 function addTask(bi) {
   if (state.blocks[bi].tasks.length >= 3) return;
+  // Cancel any pending debounced save to avoid it overwriting our add
+  clearTimeout(saveTimers[bi]);
   state.blocks[bi].tasks.push({ text: '', minutes: 0 });
-  ownerPost('update_block',{blockIndex:bi,label:state.blocks[bi].label,tasks:state.blocks[bi].tasks,miniLoop:state.miniLoop[bi]});
+  ownerPost('update_block', {
+    blockIndex: bi,
+    label: state.blocks[bi].label,
+    tasks: state.blocks[bi].tasks,
+    miniLoop: state.miniLoop[bi],
+  });
 }
 function removeTask(bi, ti) {
-  state.blocks[bi].tasks.splice(ti,1);
-  ownerPost('update_block',{blockIndex:bi,label:state.blocks[bi].label,tasks:state.blocks[bi].tasks,miniLoop:state.miniLoop[bi]});
+  clearTimeout(saveTimers[bi]);
+  state.blocks[bi].tasks.splice(ti, 1);
+  ownerPost('update_block', {
+    blockIndex: bi,
+    label: state.blocks[bi].label,
+    tasks: state.blocks[bi].tasks,
+    miniLoop: state.miniLoop[bi],
+  });
 }
 
 // ═══════════════════════════════════════════════════════
