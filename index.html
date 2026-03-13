@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Pomodoro" />
   <link rel="manifest" href="manifest.json" />
-  <title>Pomodoro · 45·15</title>
+  <title>PomoBlock³</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -202,7 +202,10 @@
     .modal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
     .modal-title { font-family:var(--mono); font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); }
     .modal-close { background:none; border:none; color:var(--text3); font-size:20px; cursor:pointer; line-height:1; padding:0 4px; }
-    .modal-body { flex:1; overflow-y:auto; padding:12px 20px; }
+    .modal-body { flex:1; overflow-y:auto; padding:12px 20px; scrollbar-width:thin; scrollbar-color:var(--border2) transparent; }
+    .modal-body::-webkit-scrollbar { width:6px; }
+    .modal-body::-webkit-scrollbar-track { background:transparent; }
+    .modal-body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
     .modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; gap:8px; }
     .preset-row { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
     .preset-name-inp { flex:1; background:none; border:none; color:var(--text); font-family:var(--serif); font-size:13px; outline:none; }
@@ -239,7 +242,7 @@
 <div id="app">
   <header>
     <div class="logo-group">
-      <div class="logo-eyebrow">Pomodoro Canvas</div>
+      <div class="logo-eyebrow">PomoBlock³ <span style="color:var(--border2)">v0.5</span></div>
       <div class="logo-title">45 · 15</div>
     </div>
     <div class="header-right">
@@ -247,9 +250,32 @@
       <div id="mode-badge"></div>
       <span class="sync-dot" id="sync-dot" title="Sync status"></span>
       <button class="btn-presets" onclick="openPresetsModal()">Preset List</button>
+      <button class="btn-ghost" id="login-btn" onclick="openLoginModal()" style="display:none">Login</button>
+      <button class="btn-ghost" id="logout-btn" onclick="doLogout()" style="display:none;font-size:9px">Logout</button>
       <button class="btn-ghost" id="reset-btn" onclick="doReset()" style="display:none">Reset</button>
     </div>
   </header>
+
+  <!-- Login Modal -->
+  <div class="modal-overlay" id="login-modal" onmousedown="if(event.target===this)closeLoginModal()">
+    <div class="modal-box" style="max-width:320px">
+      <div class="modal-header">
+        <span class="modal-title">Owner Login</span>
+        <button class="modal-close" onclick="closeLoginModal()">×</button>
+      </div>
+      <div class="modal-body" style="padding:20px">
+        <p style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:14px;line-height:1.6">Enter the owner password to enable editing and controls.</p>
+        <input id="login-pw-input" type="password" placeholder="Password…"
+          style="width:100%;background:#1a1a1a;border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 12px;border-radius:3px;outline:none"
+          onkeydown="if(event.key==='Enter')submitLogin()" />
+        <div id="login-error" style="font-family:var(--mono);font-size:10px;color:#c05050;margin-top:8px;display:none">Incorrect password.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="submitLogin()">Login</button>
+        <button class="btn-secondary" onclick="closeLoginModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Preset List Modal -->
   <div class="modal-overlay" id="presets-modal" onmousedown="if(event.target===this)closePresetsModal()">
@@ -466,26 +492,68 @@ let prevZone   = -1;
 let prevPhase  = null;
 
 // ═══════════════════════════════════════════════════════
-//  BOOT
+//  BOOT — no auto-claim; user must explicitly log in
 // ═══════════════════════════════════════════════════════
 (async function boot() {
-  const stored = sessionStorage.getItem('pomo_owner_token');
+  const stored = localStorage.getItem('pomo_owner_token');
   if (stored) { ownerToken = stored; }
-  else { await claimOwner(); }
   await poll();
   startPolling();
+  // Show login button if not owner
+  updateAuthUI();
 })();
 
-async function claimOwner() {
+function updateAuthUI() {
+  const loginBtn  = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const resetBtn  = document.getElementById('reset-btn');
+  if (isOwner) {
+    loginBtn.style.display  = 'none';
+    logoutBtn.style.display = 'block';
+    resetBtn.style.display  = 'block';
+  } else {
+    loginBtn.style.display  = 'block';
+    logoutBtn.style.display = 'none';
+    resetBtn.style.display  = 'none';
+  }
+}
+
+function openLoginModal() {
+  document.getElementById('login-pw-input').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('login-modal').classList.add('open');
+  setTimeout(() => document.getElementById('login-pw-input').focus(), 100);
+}
+function closeLoginModal() {
+  document.getElementById('login-modal').classList.remove('open');
+}
+async function submitLogin() {
+  const pw = document.getElementById('login-pw-input').value;
   try {
-    const r = await fetch(`${STATE_URL}?action=setup`);
+    const r = await fetch(`${STATE_URL}?action=setup`, {
+      headers: { 'X-Owner-Password': pw }
+    });
     const d = await r.json();
     if (d.ownerToken) {
       ownerToken = d.ownerToken;
-      sessionStorage.setItem('pomo_owner_token', ownerToken);
+      localStorage.setItem('pomo_owner_token', ownerToken);
       isOwner = true;
+      closeLoginModal();
+      updateAuthUI();
+      renderUI();
+    } else {
+      document.getElementById('login-error').style.display = 'block';
     }
-  } catch(e) {}
+  } catch(e) {
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+function doLogout() {
+  ownerToken = null;
+  isOwner = false;
+  localStorage.removeItem('pomo_owner_token');
+  updateAuthUI();
+  renderUI();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -500,15 +568,12 @@ async function poll() {
     const r = await fetch(`${STATE_URL}?action=get&_=${Date.now()}`, { headers });
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
-    if (d.isOwner && d.ownerToken && !ownerToken) {
-      ownerToken = d.ownerToken;
-      sessionStorage.setItem('pomo_owner_token', ownerToken);
-    }
     // Sound triggers
     if (state) checkSoundTriggers(state, d);
     isOwner = !!d.isOwner;
     state   = d;
     setSyncDot('live');
+    updateAuthUI();
     renderUI();
   } catch(e) { setSyncDot('err'); }
 }
@@ -684,8 +749,9 @@ function renderHeader() {
   document.getElementById('done-pill').textContent =
     `${(state.completedBlocks||[]).length} / ${state.blocks.length} done`;
   const badge = document.getElementById('mode-badge');
-  badge.innerHTML = isOwner ? '' : '<div class="viewer-badge">👁 Viewing live</div>';
-  document.getElementById('reset-btn').style.display = isOwner ? 'block' : 'none';
+  badge.innerHTML = isOwner
+    ? ''
+    : '<div class="viewer-badge">👁 Viewing</div>';
 }
 
 function renderBlocks() {
@@ -705,6 +771,17 @@ function renderBlocks() {
     if (aDone === bDone) return a - b;
     return aDone ? 1 : -1;
   });
+
+  const allDone = state.blocks.length > 0 && state.blocks.every((_, i) => completed.includes(i));
+
+  // Add New Block at TOP when all done, otherwise at bottom after loop
+  if (isOwner && allDone) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-add-block';
+    btn.setAttribute('data-add-block', '1');
+    btn.textContent = '+ Add New Block';
+    c.appendChild(btn);
+  }
 
   order.forEach((idx) => {
     const block    = state.blocks[idx];
@@ -752,13 +829,13 @@ function renderBlocks() {
     renderTaskList(idx);
   });
 
-  // Add New Block button — always show when idle (owner only), even after all blocks done
-  if (isOwner) {
-    const addBlockBtn = document.createElement('button');
-    addBlockBtn.className = 'btn-add-block';
-    addBlockBtn.setAttribute('data-add-block', '1');
-    addBlockBtn.textContent = '+ Add New Block';
-    c.appendChild(addBlockBtn);
+  // Add New Block at BOTTOM when not all done
+  if (isOwner && !allDone) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-add-block';
+    btn.setAttribute('data-add-block', '1');
+    btn.textContent = '+ Add New Block';
+    c.appendChild(btn);
   }
 
   if (!isOwner) {
