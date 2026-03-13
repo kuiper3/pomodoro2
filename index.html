@@ -196,8 +196,13 @@
     .preset-del:hover { color:var(--red); }
     .emoji-pick-btn { background:#1a1a1a; border:1px solid var(--border2); border-radius:3px; width:28px; height:28px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:border-color .15s; padding:0; color:var(--text3); }
     .emoji-pick-btn:hover { border-color:var(--amber); }
-    .emoji-picker-popup { position:fixed; z-index:1000; background:#161616; border:1px solid var(--border2); border-radius:4px; padding:8px; display:flex; flex-wrap:wrap; gap:3px; width:272px; box-shadow:0 12px 40px rgba(0,0,0,.9); }
-    .emoji-option { background:none; border:1px solid transparent; border-radius:3px; width:30px; height:30px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:all .1s; padding:0; }
+    .emoji-picker-popup { position:fixed; z-index:1000; background:#161616; border:1px solid var(--border2); border-radius:4px; width:292px; box-shadow:0 12px 40px rgba(0,0,0,.9); overflow:hidden; }
+    .emoji-tabs { display:flex; gap:2px; padding:6px 6px 0; border-bottom:1px solid var(--border); overflow-x:auto; }
+    .emoji-tab { background:none; border:none; border-radius:3px 3px 0 0; padding:5px 7px; cursor:pointer; font-size:15px; color:var(--text3); transition:all .12s; flex-shrink:0; }
+    .emoji-tab:hover { background:#222; }
+    .emoji-tab.active { background:var(--bg2); color:var(--text); border-bottom:2px solid var(--amber); }
+    .emoji-grid { display:flex; flex-wrap:wrap; gap:2px; padding:8px; max-height:170px; overflow-y:auto; }
+    .emoji-option { background:none; border:1px solid transparent; border-radius:3px; width:32px; height:32px; cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center; transition:all .1s; padding:0; }
     .emoji-option:hover { background:#2a2a2a; border-color:var(--border2); }
     .emoji-option.selected { background:var(--amber-dim); border-color:var(--amber); }
     .emoji-none { font-size:11px; color:var(--text3); }
@@ -347,11 +352,16 @@ if (window.speechSynthesis) {
 //  PRESETS — stored in localStorage with optional default times
 //  Format: { emoji, name, minutes }
 // ═══════════════════════════════════════════════════════
-const EMOJI_LIST = [
-  '🧹','🛏️','🧺','🧽','🪥','🚽','🚿','🪞','🗑️','🍽️','🔥','📦','❄️','🚪','🪣',
-  '🛋️','👕','👗','🗂️','💡','🪟','♻️','📺','🧴','🧻','🪠','🧲','🪴','🌿','💧',
-  '🏠','🔑','📋','⏰','✅','⭐','🎯','🔧','🔨','🪑','🛒','📁','🗃️','🧯','🪤',
+const EMOJI_CATS = [
+  { label:'🧹 Cleaning', emojis:['🧹','🧽','🪣','🧴','🧻','🪠','🪤','🧺','🫧','🪥','🧼','🪒'] },
+  { label:'🏠 Spaces',   emojis:['🛏️','🛋️','🪑','🚽','🚿','🪞','🚪','🪟','🏠','🔑','🧯','💡'] },
+  { label:'🍽️ Kitchen',  emojis:['🍽️','🥄','🔥','❄️','📦','🫙','🍳','🥘','🧊','🪣','🫕','🧂'] },
+  { label:'👕 Laundry',  emojis:['👕','👗','🧦','👔','🧥','🪡','🧶','👒','🎽','🧤','👙','🩱'] },
+  { label:'🗂️ Organize', emojis:['🗂️','📁','📋','🗃️','📊','📌','📎','🖇️','✂️','🗑️','📦','🧲'] },
+  { label:'♻️ Waste',    emojis:['♻️','🗑️','🪣','📦','🧹','🌿','💧','🌱','🌍','♻️','🫙','🪴'] },
+  { label:'⭐ General',  emojis:['⭐','✅','🎯','⏰','🔧','🔨','📋','🛒','💪','🏆','🔑','📝'] },
 ];
+let _emojiActiveCat = 0;
 
 const DEFAULT_PRESETS = [
   {emoji:'🧹', name:'Vacuum living room',       minutes:15},
@@ -413,13 +423,13 @@ function pushHistory(v) {}
 //  STATE
 // ═══════════════════════════════════════════════════════
 const ZONES = [
-  {name:'Computer Area', duration:1, icon:'💻'},
-  {name:'Bedroom Area',  duration:1, icon:'🛏️'},
-  {name:'Bathroom',      duration:1, icon:'🚿'},
-  {name:'Kitchen Area',  duration:1, icon:'🍳'},
+  {name:'Computer Area', duration:3, icon:'💻'},
+  {name:'Bed Area',      duration:2, icon:'🛏️'},
+  {name:'Kitchen Area',  duration:3, icon:'🍳'},
+  {name:'Bathroom',      duration:2, icon:'🚿'},
 ];
-const ZONE_BOUNDS = [0,60,120,180,240];
-const MINI_TOTAL = 240; // must match server MINI_DUR (4 min test / 600 prod)
+const ZONE_BOUNDS = [0, 180, 300, 480, 600];
+const MINI_TOTAL  = 600; // 10 min — must match server MINI_DUR
 
 let state      = null;
 let ownerToken = null;
@@ -540,8 +550,31 @@ async function ownerPost(action, body={}) {
 }
 
 function doStart(bi) {
+  // Validate: if any task times set, total should be ~35min
+  const block = state.blocks[bi];
+  const totalMins = (block.tasks||[]).reduce((s,t) => s + (Number(t.minutes)||0), 0);
+  if (totalMins > 0 && totalMins !== 35) {
+    // Show shake warning on the card
+    const card = document.querySelector(`.block-card[data-block-idx="${bi}"]`);
+    if (card) {
+      let warn = card.querySelector('.time-warning');
+      if (!warn) {
+        warn = document.createElement('div');
+        warn.className = 'time-warning';
+        card.querySelector('.block-header').after(warn);
+      }
+      const color = totalMins < 35 ? '#c05050' : '#9b6fc0';
+      warn.style.color = color;
+      warn.textContent = `⚠ Tasks = ${totalMins}m — aim for 35m (45m total with mini loop)`;
+      warn.style.animation = 'none';
+      warn.offsetHeight; // reflow to restart animation
+      warn.style.animation = 'shake .4s ease';
+      // Remove after 4s
+      setTimeout(() => warn && warn.remove(), 4000);
+    }
+    // Still allow start — just warn
+  }
   ownerPost('start', { blockIndex: bi }).then(() => {
-    // 3 second delay so audio plays after block starts
     setTimeout(() => {
       if (!state) return;
       if (state.phase === 'mini') announceZone(0);
@@ -625,36 +658,44 @@ function renderBlocks() {
   });
 
   order.forEach((idx) => {
-    const block   = state.blocks[idx];
-    const isActive  = state.activeBlock===idx && (state.phase==='mini'||state.phase==='task');
-    const isDone    = completed.includes(idx);
+    const block    = state.blocks[idx];
+    const isActive = state.activeBlock===idx && (state.phase==='mini'||state.phase==='task');
+    const isDone   = completed.includes(idx);
     const isRunning = state.running;
     const statusLabel = isDone ? '✓ Completed' : isActive ? '● Active' : `Block ${idx+1}`;
 
-    // 35-min validation
+    // Live task time total — colored indicator (no warning text)
     const totalMins = (block.tasks||[]).reduce((s,t) => s + (Number(t.minutes)||0), 0);
-    const needsTime = isOwner && !isDone && totalMins > 0 && totalMins < 35;
+    const TARGET = 35;
+    let timeChip = '';
+    if (isOwner && !isDone && totalMins > 0) {
+      const color = totalMins < TARGET ? '#c05050' : totalMins === TARGET ? 'var(--green)' : '#9b6fc0';
+      timeChip = `<span style="font-family:var(--mono);font-size:10px;color:${color};border:1px solid ${color};border-radius:2px;padding:2px 7px;margin-left:8px">${totalMins}m / ${TARGET}m</span>`;
+    }
 
     const startBtn = isOwner && !isDone && !isRunning && state.phase==='idle'
-      ? `<button class="btn-start primary" onclick="doStart(${idx})">Start →</button>` : '';
+      ? `<button class="btn-start primary" data-start="${idx}">Start →</button>` : '';
 
     const card = document.createElement('div');
     card.className = 'block-card'+(isActive?' active':isDone?' done':'');
+    card.dataset.blockIdx = idx;
     card.innerHTML = `
       <div class="block-header">
-        <div style="flex:1;min-width:0">
-          <div class="block-status">${statusLabel}</div>
-          ${isOwner
-            ? `<input class="block-title-input" value="${esc(block.label)}" placeholder="Block title…"
-                oninput="state.blocks[${idx}].label=this.value;scheduleBlockSave(${idx});" />`
-            : `<div class="block-title-static">${esc(block.label)}</div>`}
+        <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:0">
+          <div>
+            <div class="block-status">${statusLabel}</div>
+            ${isOwner
+              ? `<input class="block-title-input" value="${esc(block.label)}" placeholder="Block title…"
+                  oninput="state.blocks[${idx}].label=this.value;scheduleBlockSave(${idx});" />`
+              : `<div class="block-title-static">${esc(block.label)}</div>`}
+          </div>
+          ${timeChip}
         </div>
         ${startBtn}
       </div>
-      ${needsTime ? `<div class="time-warning">⚠ Set 35 min of tasks (currently ${totalMins}m)</div>` : ''}
       <div class="task-list" id="tl-${idx}"></div>
       ${isOwner && (block.tasks||[]).length < 5
-        ? `<button class="btn-add" onclick="addTask(${idx})">+ add task</button>` : ''}
+        ? `<button class="btn-add" data-add="${idx}">+ add task</button>` : ''}
     `;
     c.appendChild(card);
     renderTaskList(idx);
@@ -667,6 +708,14 @@ function renderBlocks() {
     c.appendChild(n);
   }
 }
+
+// Event delegation for block actions — survives re-renders
+document.addEventListener('click', e => {
+  const startBtn = e.target.closest('[data-start]');
+  if (startBtn) { doStart(Number(startBtn.dataset.start)); return; }
+  const addBtn = e.target.closest('[data-add]');
+  if (addBtn) { addTask(Number(addBtn.dataset.add)); return; }
+});
 
 function renderTaskList(bi) {
   const list = document.getElementById(`tl-${bi}`);
@@ -1039,11 +1088,18 @@ function openDD(bi,ti) {
   if (!dd || !wrap) return;
   document.querySelectorAll('.task-dropdown.open').forEach(d=>d.classList.remove('open'));
   openWrap = wrap;
-  buildDD(bi, ti, getTask(bi,ti).text || '');
+  buildDD(bi, ti, ''); // always show full list on open — typing filters live
   const rect = wrap.getBoundingClientRect();
-  dd.style.top   = (rect.bottom + 3) + 'px';
+  // Flip above if near bottom of viewport
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const dropH = Math.min(240, getPresets().length * 40 + 20);
+  if (spaceBelow < dropH + 8 && rect.top > dropH) {
+    dd.style.top    = (rect.top - dropH - 3) + 'px';
+  } else {
+    dd.style.top    = (rect.bottom + 3) + 'px';
+  }
   dd.style.left  = rect.left + 'px';
-  dd.style.width = Math.max(rect.width, 260) + 'px';
+  dd.style.width = Math.max(rect.width, 280) + 'px';
   dd.classList.add('open');
   _ddJustOpened = true;
 }
@@ -1120,29 +1176,58 @@ function toggleEmojiPicker(idx) {
   _emojiPickerIdx = idx;
   const btn = document.getElementById(`epbtn-${idx}`);
   if (!btn) return;
-  // Build picker
+  buildEmojiPicker(idx, btn);
+}
+
+function buildEmojiPicker(idx, btn) {
   const picker = document.createElement('div');
   picker.id = 'emoji-picker-popup';
   picker.className = 'emoji-picker-popup';
-  EMOJI_LIST.forEach(em => {
+
+  // Tab bar
+  const tabs = document.createElement('div');
+  tabs.className = 'emoji-tabs';
+  EMOJI_CATS.forEach((cat, ci) => {
+    const t = document.createElement('button');
+    t.className = 'emoji-tab' + (ci === _emojiActiveCat ? ' active' : '');
+    t.title = cat.label;
+    t.textContent = cat.label.split(' ')[0]; // just the emoji part
+    t.onmousedown = e => { e.preventDefault(); e.stopPropagation(); _emojiActiveCat = ci; buildEmojiPicker(idx, btn); };
+    tabs.appendChild(t);
+  });
+  picker.appendChild(tabs);
+
+  // Grid
+  const grid = document.createElement('div');
+  grid.className = 'emoji-grid';
+  const currentCat = EMOJI_CATS[_emojiActiveCat];
+  currentCat.emojis.forEach(em => {
     const b = document.createElement('button');
-    b.className = 'emoji-option' + (em === (_editPresets[idx].emoji||'') ? ' selected' : '');
+    b.className = 'emoji-option' + (em === (_editPresets[idx]?.emoji||'') ? ' selected' : '');
     b.textContent = em;
     b.onmousedown = e => { e.preventDefault(); e.stopPropagation(); _editPresets[idx].emoji = em; closeEmojiPicker(); renderPresetRows(); };
-    picker.appendChild(b);
+    grid.appendChild(b);
   });
-  // Add "none" option
+  // No-emoji option
   const none = document.createElement('button');
   none.className = 'emoji-option emoji-none';
   none.textContent = '✕';
   none.title = 'No emoji';
   none.onmousedown = e => { e.preventDefault(); e.stopPropagation(); _editPresets[idx].emoji = ''; closeEmojiPicker(); renderPresetRows(); };
-  picker.appendChild(none);
-  // Position below button
+  grid.appendChild(none);
+  picker.appendChild(grid);
+
   document.body.appendChild(picker);
+
+  // Smart position — flip above if near bottom
   const rect = btn.getBoundingClientRect();
-  picker.style.top  = (rect.bottom + 4) + 'px';
-  picker.style.left = Math.min(rect.left, window.innerWidth - 280) + 'px';
+  const pickerH = 220; // approx
+  const pickerW = 288;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const top = spaceBelow < pickerH + 8 ? Math.max(8, rect.top - pickerH - 4) : rect.bottom + 4;
+  const left = Math.min(Math.max(8, rect.left), window.innerWidth - pickerW - 8);
+  picker.style.top  = top + 'px';
+  picker.style.left = left + 'px';
 }
 function closeEmojiPicker() {
   _emojiPickerIdx = null;
