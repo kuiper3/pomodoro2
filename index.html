@@ -379,26 +379,36 @@ async function poll() {
 function checkSoundTriggers(prev, next) {
   if (!isOwner) return;
   if (!next.running || next.paused) return;
-  // Mini just started
-  if (prev.phase !== 'mini' && next.phase === 'mini') { announceZone(0); return; }
+  // Mini just started (via poll — start button handles its own announcement with delay)
   // Zone change within mini
   if (next.phase === 'mini' && prev.phase === 'mini') {
     const zi = getZone(next.elapsed), pi = getZone(prev.elapsed);
     if (zi > pi) { announceZone(zi); return; }
   }
-  // Mini → first task slot
-  if (prev.phase === 'mini' && next.phase === 'task') { announceMiniDone(); return; }
-  // Task slot advanced within task phase
+  // Mini → first task (natural transition, not skip)
+  if (prev.phase === 'mini' && next.phase === 'task') {
+    chimeDone();
+    const slots = next.taskSlots || [];
+    const slot = slots[0];
+    setTimeout(() => speak(slot && slot.text ? slot.text : 'Starting focus work.', 0.95), 400);
+    return;
+  }
+  // Task slot advanced (natural timer expiry)
   if (prev.phase === 'task' && next.phase === 'task' && (next.activeTaskSlot||0) > (prev.activeTaskSlot||0)) {
     const slots = next.taskSlots || [];
     const slot = slots[next.activeTaskSlot||0];
-    if (slot && slot.text) { chimeZone(); speak(`Next: ${slot.text}`, 0.95); }
+    chimeZone();
+    setTimeout(() => speak(slot && slot.text ? slot.text : 'Next task.', 0.95), 400);
     return;
   }
-  // All tasks → break
-  if (prev.phase === 'task' && next.phase === 'break') { announceBlockDone(); return; }
-  // Break done
-  if (prev.phase === 'break' && next.phase === 'idle') { announceBreakDone(); return; }
+  // Task → break (natural or skip)
+  if (prev.phase === 'task' && next.phase === 'break') {
+    chimeBreak(); speak('Break time. Rest up.', 0.9); return;
+  }
+  // Break → idle
+  if (prev.phase === 'break' && next.phase === 'idle') {
+    chimeZone(); speak('Break over. Ready for next block.', 0.9); return;
+  }
 }
 function announceZone(zi)    { chimeZone(); speak(`Start ${ZONES[zi].name}`); }
 function announceMiniDone()  { chimeDone(); speak('Mini loop complete. Starting focus work.', 0.9); }
@@ -427,12 +437,39 @@ async function ownerPost(action, body={}) {
   } catch(e) { console.error(e); }
 }
 
-function doStart(bi)      { ownerPost('start', { blockIndex: bi }); }
+function doStart(bi) {
+  ownerPost('start', { blockIndex: bi }).then(() => {
+    // 3 second delay so audio plays after block starts
+    setTimeout(() => {
+      if (!state) return;
+      if (state.phase === 'mini') announceZone(0);
+      else if (state.phase === 'task') announceCurrentTask();
+    }, 3000);
+  });
+}
+function announceCurrentTask() {
+  const slots = state.taskSlots || [];
+  const slot = slots[state.activeTaskSlot || 0];
+  if (slot && slot.text) { chimeZone(); speak(slot.text, 0.95); }
+  else { chimeDone(); speak('Starting focus work.', 0.9); }
+}
 function doPause()        { ownerPost('pause'); }
 function doResume()       { ownerPost('resume'); }
 function doStop()         { ownerPost('stop'); }
-function doSkipMini()     { ownerPost('skip_mini'); }
-function doSkipTask()     { ownerPost('skip_task'); }
+function doSkipMini()     {
+  ownerPost('skip_mini').then(() => {
+    setTimeout(() => { if (state) announceCurrentTask(); }, 800);
+  });
+}
+function doSkipTask()     {
+  ownerPost('skip_task').then(() => {
+    setTimeout(() => {
+      if (!state) return;
+      if (state.phase === 'task') announceCurrentTask();
+      else if (state.phase === 'break') { chimeBreak(); speak('Break time. Rest up.', 0.9); }
+    }, 800);
+  });
+}
 function doReset()        { ownerPost('reset'); }
 function doToggleMini(bi) { ownerPost('toggle_mini', { blockIndex: bi }); }
 function doClearLog()     { if (confirm('Clear completed log?')) ownerPost('clear_log'); }
@@ -817,7 +854,6 @@ function removeTask(bi, ti) {
 //  DROPDOWN
 // ═══════════════════════════════════════════════════════
 document.addEventListener('click', e => {
-  // Don't close suggestions dropdown when clicking time picker
   if (e.target.classList.contains('time-select') || e.target.closest('.time-select')) return;
   if (openWrap && !openWrap.contains(e.target)) closeAllDD();
 });
@@ -826,29 +862,64 @@ function closeAllDD() {
   openWrap = null;
 }
 function buildDD(bi, ti, query) {
-  const dd = document.getElementById(`dd-${bi}-${ti}`); if(!dd)return;
+  const dd = document.getElementById(`dd-${bi}-${ti}`); if(!dd) return;
   const q = query.trim().toLowerCase();
-  const hist = getHistory().filter(t=>!q||t.toLowerCase().includes(q)).slice(0,5);
-  const presets = PRESETS.filter(t=>(!q||t.toLowerCase().includes(q))&&!hist.some(h=>h.toLowerCase()===t.toLowerCase())).slice(0,8);
-  dd.innerHTML='';
-  if(!hist.length&&!presets.length){dd.innerHTML=`<div class="dd-empty">No suggestions</div>`;return;}
-  if(hist.length){
-    dd.innerHTML+=`<div class="dd-section">Recent</div>`;
-    hist.forEach(t=>{const d=document.createElement('div');d.className='dd-item hist';d.textContent=t;d.onmousedown=e=>{e.preventDefault();pick(bi,ti,t);};dd.appendChild(d);});
+  const currentVal = (getTask(bi, ti).text || '').trim().toLowerCase();
+  // History: items that match query (always include current value even if query empty)
+  const hist = getHistory().filter(t => {
+    if (!q) return true; // show all history when no query
+    return t.toLowerCase().includes(q);
+  }).slice(0, 6);
+  // Presets: match query, don't duplicate history entries
+  const presets = PRESETS.filter(t => {
+    if (q && !t.toLowerCase().includes(q)) return false;
+    return !hist.some(h => h.toLowerCase() === t.toLowerCase());
+  }).slice(0, 10);
+  dd.innerHTML = '';
+  if (!hist.length && !presets.length) { dd.innerHTML=`<div class="dd-empty">No suggestions</div>`; return; }
+  if (hist.length) {
+    dd.innerHTML += `<div class="dd-section">Recent</div>`;
+    hist.forEach(t => {
+      const d = document.createElement('div');
+      d.className = 'dd-item hist' + (t.toLowerCase()===currentVal ? ' selected' : '');
+      if (t.toLowerCase()===currentVal) d.style.cssText='color:var(--amber);background:#1c1510';
+      d.textContent = t;
+      d.onmousedown = e => { e.preventDefault(); pick(bi,ti,t); };
+      dd.appendChild(d);
+    });
   }
-  if(presets.length){
-    dd.innerHTML+=`<div class="dd-section">Suggestions</div>`;
-    presets.forEach(t=>{const d=document.createElement('div');d.className='dd-item';d.textContent=t;d.onmousedown=e=>{e.preventDefault();pick(bi,ti,t);};dd.appendChild(d);});
+  if (presets.length) {
+    dd.innerHTML += `<div class="dd-section">Suggestions</div>`;
+    presets.forEach(t => {
+      const d = document.createElement('div');
+      d.className = 'dd-item';
+      d.textContent = t;
+      d.onmousedown = e => { e.preventDefault(); pick(bi,ti,t); };
+      dd.appendChild(d);
+    });
   }
 }
-function openDD(bi,ti){buildDD(bi,ti,getTask(bi,ti).text||'');closeAllDD();const dd=document.getElementById(`dd-${bi}-${ti}`);const wrap=document.getElementById(`wrap-${bi}-${ti}`);if(dd&&wrap){dd.classList.add('open');openWrap=wrap;}}
-function toggleDD(bi,ti){const dd=document.getElementById(`dd-${bi}-${ti}`);if(!dd)return;if(dd.classList.contains('open')){closeAllDD();return;}openDD(bi,ti);}
+function openDD(bi,ti) {
+  const dd   = document.getElementById(`dd-${bi}-${ti}`);
+  const wrap = document.getElementById(`wrap-${bi}-${ti}`);
+  if (!dd || !wrap) return;
+  // Close others first, then open this one
+  document.querySelectorAll('.task-dropdown.open').forEach(d=>d.classList.remove('open'));
+  openWrap = wrap;
+  buildDD(bi, ti, getTask(bi,ti).text || '');
+  dd.classList.add('open');
+}
+function toggleDD(bi,ti) {
+  const dd = document.getElementById(`dd-${bi}-${ti}`);
+  if (!dd) return;
+  if (dd.classList.contains('open')) { closeAllDD(); return; }
+  openDD(bi, ti);
+}
 function pick(bi,ti,val) {
   const t = getTask(bi,ti);
   setTask(bi,ti,val,t.minutes);
   pushHistory(val);
   closeAllDD();
-  // Directly update the input so it's visible immediately
   const inp = document.getElementById(`inp-${bi}-${ti}`);
   if (inp) inp.value = val;
   onTaskSave(bi,ti,val);
