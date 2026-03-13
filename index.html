@@ -38,23 +38,24 @@
     .sync-dot.live { background:var(--green); }
     .sync-dot.err  { background:#8b3a3a; }
 
-    /* Layout */
+    /* Layout — timer on LEFT, blocks on RIGHT. On mobile (column) timer naturally appears first */
     main { display:flex; flex:1; }
-    #blocks-panel { flex:1; padding:24px 20px; overflow-y:auto; border-right:1px solid var(--border); }
-    .panel-label { font-family:var(--mono); font-size:9px; letter-spacing:3px; color:var(--text3); text-transform:uppercase; margin-bottom:20px; }
+    #timer-panel { width:320px; flex-shrink:0; background:#0c0c0c; padding:24px 20px; display:flex; flex-direction:column; gap:24px; position:sticky; top:57px; height:calc(100vh - 57px); overflow-y:auto; order:1; border-right:1px solid var(--border); }
+    #blocks-panel { flex:1; padding:24px 20px; overflow-y:auto; order:2; }
+    .panel-label { font-family:var(--mono); font-size:10px; letter-spacing:3px; color:var(--text3); text-transform:uppercase; margin-bottom:20px; }
 
     /* Block cards */
     .block-card { border:1px solid var(--border); border-radius:3px; background:var(--bg2); padding:20px; margin-bottom:16px; transition:border-color .3s,background .3s; }
     .block-card.active { border-color:var(--amber); background:var(--amber-dim); }
     .block-card.done   { border-color:#1a2a1a; background:var(--green-dim); opacity:.6; }
     .block-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
-    .block-status { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--text3); margin-bottom:5px; }
+    .block-status { font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text3); margin-bottom:5px; }
     .block-card.active .block-status { color:var(--amber); }
     .block-card.done   .block-status { color:var(--green); }
-    .block-title-input { background:none; border:none; color:var(--text); font-family:var(--serif); font-size:15px; outline:none; width:100%; }
+    .block-title-input { background:none; border:none; color:var(--text); font-family:var(--serif); font-size:17px; outline:none; width:100%; }
     .block-title-input:disabled { opacity:.7; cursor:default; }
-    .block-title-static { font-family:var(--serif); font-size:15px; color:var(--text); }
-    .btn-start { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:7px 14px; border-radius:2px; cursor:pointer; border:1px solid var(--border2); background:none; color:var(--text3); white-space:nowrap; transition:all .2s; }
+    .block-title-static { font-family:var(--serif); font-size:17px; color:var(--text); }
+    .btn-start { font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; padding:8px 16px; border-radius:2px; cursor:pointer; border:1px solid var(--border2); background:none; color:var(--text3); white-space:nowrap; transition:all .2s; }
     .btn-start.primary { background:var(--amber); border-color:var(--amber); color:#fff; }
 
     .task-list { display:flex; flex-direction:column; gap:8px; }
@@ -62,8 +63,8 @@
     /* Mini loop row */
     .mini-loop-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); margin-bottom:4px; }
     .mini-dot { width:5px; height:5px; border-radius:50%; background:var(--amber); flex-shrink:0; }
-    .mini-label { font-family:var(--serif); font-size:13px; color:var(--amber); flex:1; }
-    .mini-dur { font-family:var(--mono); font-size:10px; opacity:.6; }
+    .mini-label { font-family:var(--serif); font-size:14px; color:var(--amber); flex:1; }
+    .mini-dur { font-family:var(--mono); font-size:11px; opacity:.6; }
     .mini-toggle { font-family:var(--mono); font-size:9px; letter-spacing:1px; text-transform:uppercase; padding:4px 10px; border-radius:2px; cursor:pointer; border:1px solid var(--border2); background:none; color:var(--text3); transition:all .2s; }
     .mini-toggle.on  { border-color:var(--amber); color:var(--amber); }
     .mini-toggle.off { border-color:#2a1a0a; color:#5a4030; }
@@ -75,7 +76,7 @@
     .block-card.active .task-dot { background:var(--amber); }
     .block-card.done   .task-dot { background:var(--green); }
     .task-input-wrap { flex:1; position:relative; }
-    .task-input { width:100%; background:none; border:none; border-bottom:1px solid var(--border); color:var(--text2); font-family:var(--serif); font-size:13px; padding:5px 22px 5px 0; outline:none; transition:border-color .2s,color .2s; }
+    .task-input { width:100%; background:none; border:none; border-bottom:1px solid var(--border); color:var(--text2); font-family:var(--serif); font-size:15px; padding:6px 24px 6px 0; outline:none; transition:border-color .2s,color .2s; }
     .task-input:focus { border-bottom-color:var(--border2); color:var(--text); }
     .task-input::placeholder { color:var(--text3); font-style:italic; }
     .task-input:disabled { cursor:default; }
@@ -83,7 +84,7 @@
     .task-dropdown { display:none; position:fixed; background:#181818; border:1px solid var(--border2); border-radius:3px; z-index:200; width:280px; max-height:240px; overflow-y:auto; box-shadow:0 10px 30px rgba(0,0,0,.85); }
     .task-dropdown.open { display:block; }
     .dd-section { font-family:var(--mono); font-size:8px; letter-spacing:2px; color:var(--text3); text-transform:uppercase; padding:8px 12px 4px; border-bottom:1px solid var(--border); }
-    .dd-item { font-family:var(--serif); font-size:13px; color:var(--text2); padding:9px 12px; cursor:pointer; transition:background .12s,color .12s; border-bottom:1px solid var(--border); }
+    .dd-item { font-family:var(--serif); font-size:14px; color:var(--text2); padding:10px 12px; cursor:pointer; transition:background .12s,color .12s; border-bottom:1px solid var(--border); }
     .dd-item:last-child { border-bottom:none; }
     .dd-item:hover { background:#222; color:var(--text); }
     .dd-item.hist { color:#b08a60; }
@@ -91,7 +92,7 @@
     .dd-empty { font-family:var(--mono); font-size:10px; color:var(--text3); padding:12px; font-style:italic; }
 
     /* Time picker */
-    .time-select { background:#161616; border:1px solid var(--border); color:var(--amber); font-family:var(--mono); font-size:10px; padding:4px 6px; border-radius:2px; cursor:pointer; flex-shrink:0; width:68px; }
+    .time-select { background:#161616; border:1px solid var(--border); color:var(--amber); font-family:var(--mono); font-size:11px; padding:5px 6px; border-radius:2px; cursor:pointer; flex-shrink:0; width:72px; }
     .time-select:focus { outline:none; border-color:var(--border2); }
     .time-select option { background:#161616; color:var(--amber); }
 
@@ -122,8 +123,8 @@
     }
 
     /* Timer panel */
-    #timer-panel { width:300px; flex-shrink:0; background:#0c0c0c; padding:24px 20px; display:flex; flex-direction:column; gap:24px; position:sticky; top:57px; height:calc(100vh - 57px); overflow-y:auto; }
-    .timer-phase { font-family:var(--mono); font-size:9px; letter-spacing:3px; text-transform:uppercase; }
+    /* timer-panel defined in Layout section above */
+    .timer-phase { font-family:var(--mono); font-size:11px; letter-spacing:3px; text-transform:uppercase; }
     .timer-phase.mini { color:var(--amber); }
     .timer-phase.task { color:var(--green); }
     .timer-phase.brk  { color:var(--blue); }
@@ -150,9 +151,9 @@
     .zone-item.current { border-color:var(--amber); background:var(--amber-dim); }
     .zone-item.past { opacity:.35; }
     .zone-icon { font-size:16px; }
-    .zone-name { flex:1; font-family:var(--serif); font-size:13px; color:var(--text2); }
+    .zone-name { flex:1; font-family:var(--serif); font-size:14px; color:var(--text2); }
     .zone-item.current .zone-name { color:var(--text); }
-    .zone-dur { font-family:var(--mono); font-size:10px; color:var(--text3); }
+    .zone-dur { font-family:var(--mono); font-size:11px; color:var(--text3); }
 
     .break-card { border:1px solid #1a2a3a; border-radius:2px; background:var(--blue-dim); padding:20px; text-align:center; }
     .break-icon { font-size:28px; margin-bottom:8px; }
@@ -179,8 +180,8 @@
     .active-tasks { display:flex; flex-direction:column; gap:10px; }
     .active-task { display:flex; gap:8px; align-items:flex-start; }
     .active-task-dot { width:4px; height:4px; border-radius:50%; background:var(--green); margin-top:7px; flex-shrink:0; }
-    .active-task-text { font-family:var(--serif); font-size:13px; color:var(--text2); line-height:1.5; }
-    .active-task-time { font-family:var(--mono); font-size:10px; color:var(--text3); margin-left:auto; flex-shrink:0; }
+    .active-task-text { font-family:var(--serif); font-size:15px; color:var(--text2); line-height:1.5; }
+    .active-task-time { font-family:var(--mono); font-size:11px; color:var(--text3); margin-left:auto; flex-shrink:0; }
 
     /* Log section */
     #log-section { padding:24px 20px; border-top:1px solid var(--border); }
@@ -188,12 +189,12 @@
     .log-entries { display:flex; flex-direction:column; gap:12px; }
     .log-entry { border:1px solid var(--border); border-radius:3px; background:var(--bg2); padding:14px 16px; }
     .log-entry-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
-    .log-entry-label { font-family:var(--serif); font-size:13px; color:var(--text); }
-    .log-entry-time { font-family:var(--mono); font-size:9px; color:var(--text3); letter-spacing:1px; }
+    .log-entry-label { font-family:var(--serif); font-size:15px; color:var(--text); }
+    .log-entry-time { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:1px; }
     .log-entry-tasks { display:flex; flex-direction:column; gap:6px; }
     .log-task { display:flex; gap:8px; align-items:center; }
-    .log-task-dot { width:6px; height:6px; border-radius:50%; background:var(--green); flex-shrink:0; }
-    .log-task-text { font-family:var(--serif); font-size:12px; color:var(--text3); flex:1; }
+    .log-task-dot { width:7px; height:7px; border-radius:50%; background:var(--green); flex-shrink:0; }
+    .log-task-text { font-family:var(--serif); font-size:13px; color:var(--text3); flex:1; }
     .log-empty { font-family:var(--mono); font-size:10px; color:var(--text3); font-style:italic; }
 
     /* Log status buttons — per task */
@@ -240,10 +241,10 @@
     .btn-presets:hover { color:var(--text2); border-color:var(--border2); }
 
     @media(max-width:640px) {
-      main { flex-direction:column-reverse; }
-      #timer-panel { width:100%; position:static; height:auto; border-top:none; border-bottom:1px solid var(--border); order:1; }
-      #blocks-panel { border-right:none; order:2; }
-      .timer-display { font-size:48px; }
+      main { flex-direction:column; }
+      #timer-panel { order:1; width:100%; position:static; height:auto; border-right:none; border-bottom:1px solid var(--border); }
+      #blocks-panel { order:2; }
+      .timer-display { font-size:52px; }
     }
   </style>
 </head>
@@ -302,10 +303,6 @@
     </div>
   </div>
   <main>
-    <div id="blocks-panel">
-      <div class="panel-label">Session Plan</div>
-      <div id="blocks-container"></div>
-    </div>
     <div id="timer-panel">
       <div>
         <div class="panel-label" style="margin-bottom:8px">Current Phase</div>
@@ -339,6 +336,10 @@
         <div class="panel-label" style="margin-bottom:10px" id="active-block-label">Block 1</div>
         <div class="active-tasks" id="active-tasks-list"></div>
       </div>
+    </div>
+    <div id="blocks-panel">
+      <div class="panel-label">Session Plan</div>
+      <div id="blocks-container"></div>
     </div>
   </main>
   <div id="log-section">
@@ -573,7 +574,15 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 //  POLLING
 // ═══════════════════════════════════════════════════════
-function startPolling() { pollTimer = setInterval(poll, POLL_MS); }
+function startPolling() {
+  pollTimer = setInterval(poll, POLL_MS);
+  // Owner heartbeat: persist running state every 10s so /tmp survives cold starts longer
+  setInterval(() => {
+    if (isOwner && state && state.running && !state.paused) {
+      ownerPost('tick');
+    }
+  }, 10000);
+}
 
 async function poll() {
   try {
@@ -823,11 +832,16 @@ function renderBlocks() {
         : totalMins < TARGET ? '#c05050'
         : totalMins === TARGET ? '#5a8b5a'
         : '#9b6fc0';
-      const label = totalMins === 0
-        ? `0m / ${TARGET}m tasks`
-        : totalMins < TARGET ? `${totalMins}m / ${TARGET}m ⚠`
-        : totalMins === TARGET ? `${totalMins}m ✓`
-        : `${totalMins}m / ${TARGET}m`;
+      let label;
+      if (totalMins === 0) {
+        label = useMini ? `0m + 10m / 45m` : `0m / 45m`;
+      } else if (totalMins < TARGET) {
+        label = useMini ? `${totalMins}m + 10m / 45m ⚠` : `${totalMins}m / 45m ⚠`;
+      } else if (totalMins === TARGET) {
+        label = useMini ? `${totalMins}m + 10m = 45m ✓` : `${totalMins}m = 45m ✓`;
+      } else {
+        label = useMini ? `${totalMins}m + 10m / 45m` : `${totalMins}m / 45m`;
+      }
       timeChip = `<span class="time-chip" data-bi="${idx}" style="color:${color};border:1px solid ${color}">${label}</span>`;
     }
 
@@ -1257,10 +1271,16 @@ function onTimeChange(bi, ti, mins) {
       : totalMins < TARGET ? '#c05050'
       : totalMins === TARGET ? '#5a8b5a'
       : '#9b6fc0';
-    const label = totalMins === 0 ? `0m / ${TARGET}m tasks`
-      : totalMins < TARGET ? `${totalMins}m / ${TARGET}m ⚠`
-      : totalMins === TARGET ? `${totalMins}m ✓`
-      : `${totalMins}m / ${TARGET}m`;
+    let label;
+    if (totalMins === 0) {
+      label = useMini ? `0m + 10m / 45m` : `0m / 45m`;
+    } else if (totalMins < TARGET) {
+      label = useMini ? `${totalMins}m + 10m / 45m ⚠` : `${totalMins}m / 45m ⚠`;
+    } else if (totalMins === TARGET) {
+      label = useMini ? `${totalMins}m + 10m = 45m ✓` : `${totalMins}m = 45m ✓`;
+    } else {
+      label = useMini ? `${totalMins}m + 10m / 45m` : `${totalMins}m / 45m`;
+    }
     chip.style.color = color; chip.style.borderColor = color;
     chip.textContent = label;
   }
