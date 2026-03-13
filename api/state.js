@@ -2,7 +2,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 const STATE_FILE  = '/tmp/pomo_state.json';
-const MINI_DUR    = 240;   // 4 min total (1 min/zone) — TESTING
+const MINI_DUR    = 600;   // 10 min (3+2+3+2 zones) — PRODUCTION
 const BREAK_DUR   = 900;   // 15 min
 const DEF_TASK_DUR = 2100; // 35 min if no task times set
 
@@ -16,7 +16,7 @@ function nt(t) {
 function normBlock(b) {
   return {
     label: String(b.label||'').replace(/<[^>]*>/g,'').slice(0,200),
-    tasks: (Array.isArray(b.tasks) ? b.tasks : []).slice(0,3).map(nt),
+    tasks: (Array.isArray(b.tasks) ? b.tasks : []).slice(0,5).map(nt),
   };
 }
 
@@ -33,9 +33,9 @@ function getTaskSlots(block) {
 
 function freshBlocks() {
   return [
-    { label: 'Block 1 — Main Work', tasks: [{ text:'', minutes:0 }, { text:'', minutes:0 }] },
-    { label: 'Block 2 — Preview',   tasks: [{ text:'', minutes:0 }, { text:'', minutes:0 }] },
-    { label: 'Block 3 — Preview',   tasks: [{ text:'', minutes:0 }, { text:'', minutes:0 }] },
+    { label: 'Block 1', tasks: [{ text:'', minutes:0 }, { text:'', minutes:0 }] },
+    { label: 'Block 2', tasks: [{ text:'', minutes:0 }, { text:'', minutes:0 }] },
+    { label: 'Block 3', tasks: [{ text:'', minutes:0 }, { text:'', minutes:0 }] },
   ];
 }
 
@@ -193,7 +193,7 @@ module.exports = function(req, res) {
         const bi = body.blockIndex != null ? Number(body.blockIndex) : 0;
         if (!s.blocks[bi]) break;
         if (body.label != null) s.blocks[bi].label = String(body.label).replace(/<[^>]*>/g,'').slice(0,200);
-        if (body.tasks != null) s.blocks[bi].tasks = (Array.isArray(body.tasks)?body.tasks:[]).slice(0,3).map(nt);
+        if (body.tasks != null) s.blocks[bi].tasks = (Array.isArray(body.tasks)?body.tasks:[]).slice(0,5).map(nt);
         if (body.miniLoop != null) s.miniLoop[bi] = !!body.miniLoop;
         break;
       }
